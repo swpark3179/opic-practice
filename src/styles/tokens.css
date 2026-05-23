@@ -1,0 +1,33 @@
+:root {
+  /* Colors */
+  --opic-bg: #FAF8F4;
+  --opic-bg-warm: #F5F0E5;
+  --opic-surface: #FFFFFF;
+  --opic-border: #ECE7DE;
+  --opic-border-strong: #D8D1C3;
+  --opic-ink: #1B1A17;
+  --opic-ink-mid: #5C574E;
+  --opic-ink-low: #8E887C;
+  --opic-primary: #2D3FAE;
+  --opic-primary-soft: #EEF0FA;
+  --opic-primary-border: #D9DDF2;
+  --opic-rec: #C24A3F;
+  --opic-rec-soft: #FAEDEB;
+  --opic-sage: #3F7A55;
+  --opic-sage-soft: #E8F1EB;
+  --opic-sage-border: #CFE0D5;
+  --opic-amber: #B9821F;
+  --opic-amber-soft: #FBF1DA;
+  --opic-amber-border: #EAD7AA;
+
+  /* Typography */
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Spacing & Radius */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-pill: 999px;
+}

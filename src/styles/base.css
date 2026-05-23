@@ -1,0 +1,72 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--opic-bg);
+  font-family: var(--font-sans);
+  color: var(--opic-ink);
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  height: 100%;
+  container-type: inline-size;
+  container-name: app;
+}
+
+/* Utilities */
+.opic-mono {
+  font-family: var(--font-mono);
+}
+
+.opic-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.opic-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.opic-grow {
+  flex: 1;
+}
+
+.opic-scrollable {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Typography classes */
+.opic-h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  margin: 0;
+}
+
+.opic-sub {
+  font-size: 13px;
+  color: var(--opic-ink-mid);
+  margin-top: 4px;
+}
+
+@container app (min-width: 720px) {
+  .opic-h1 {
+    font-size: 28px;
+    letter-spacing: -0.8px;
+  }
+  .opic-sub {
+    font-size: 14px;
+  }
+}
