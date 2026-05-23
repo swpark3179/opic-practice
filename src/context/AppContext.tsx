@@ -38,6 +38,7 @@ type Action =
   | { type: 'SET_TTS_RATE'; payload: number }
   | { type: 'GENERATE_TEST'; payload: any } // GeneratedTest
   | { type: 'NAV_QUESTION'; payload: { delta: number } }
+  | { type: 'JUMP_TO'; payload: { topicIdx: number; questionIdx?: number } }
   | { type: 'SET_MODE'; payload: 'voice' | 'text' }
   | { type: 'UPDATE_TEXT_ANSWER'; payload: string }
   | { type: 'TOGGLE_SHEET'; payload: 'knowledge' | 'topics' | 'stats' }
@@ -95,8 +96,16 @@ function appReducer(state: AppState, action: Action): AppState {
         else { qIdx = 0; }
       } else if (qIdx >= topics[tIdx].questions.length) {
         if (tIdx < topics.length - 1) { tIdx++; qIdx = 0; }
-        else { qIdx = topics[tIdx].questions.length - 1; }
+        else { tIdx = topics.length; qIdx = 0; }
       }
+      return { ...state, currentTopicIdx: tIdx, currentQuestionIdx: qIdx, textAnswer: '' };
+    }
+    case 'JUMP_TO': {
+      if (!state.generatedTest) return state;
+      const topics = state.generatedTest.topics;
+      const tIdx = Math.max(0, Math.min(action.payload.topicIdx, topics.length - 1));
+      const maxQ = topics[tIdx].questions.length - 1;
+      const qIdx = Math.max(0, Math.min(action.payload.questionIdx ?? 0, maxQ));
       return { ...state, currentTopicIdx: tIdx, currentQuestionIdx: qIdx, textAnswer: '' };
     }
     case 'SET_MODE':
