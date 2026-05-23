@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useTTS } from '../hooks/useTTS';
 import { useSTT } from '../hooks/useSTT';
@@ -6,7 +6,6 @@ import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useTimer } from '../hooks/useTimer';
 import { storage } from '../services/storage';
 
-import { TopBar } from '../components/TopBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Tag } from '../components/ui/Tag';
@@ -18,73 +17,89 @@ import { MicButton } from '../components/MicButton';
 export function MainScreen() {
   const { state, dispatch } = useAppContext();
   const test = state.generatedTest;
-  
+
   const topicIdx = state.currentTopicIdx;
   const qIdx = state.currentQuestionIdx;
-  
-  if (!test || !test.topics[topicIdx]) return null;
-
-  const topic = test.topics[topicIdx];
-  const q = topic.questions[qIdx];
-  const category = test.categories.find(c => c.topics.some(t => t.title === topic.title));
 
   const { mode, textAnswer } = state;
   const { speak, stop: stopTTS, speaking } = useTTS();
-  const { start: startSTT, stop: stopSTT, transcript, listening: sttListening } = useSTT();
-  const { startRecording, stopRecording, isRecording } = useAudioRecorder();
-  
+  const { start: startSTT, stop: stopSTT, transcript, supported: sttSupported } = useSTT();
+  const { startRecording, stopRecording, isRecording, error: recorderError, getLevel } = useAudioRecorder();
+
   const [showSample, setShowSample] = useState(false);
   const [questionRate, setQuestionRate] = useState(0.85);
 
-  const { elapsed, reset: resetTimer } = useTimer(isRecording);
-  const remaining = Math.max(0, topic.timer - elapsed);
+  const isCompleted = !!test && topicIdx >= test.topics.length;
+  const topic = !isCompleted && test ? test.topics[topicIdx] : null;
+  const q = topic ? topic.questions[qIdx] : null;
+  const category = topic && test ? test.categories.find(c => c.topics.some(t => t.title === topic.title)) : null;
 
-  // Auto stop when timer hits 0
+  const { elapsed, reset: resetTimer } = useTimer(isRecording);
+  const remaining = topic ? Math.max(0, topic.timer - elapsed) : 0;
+
+  const handleStopRecording = useCallback(async () => {
+    stopSTT();
+    const blob = await stopRecording();
+    if (blob) {
+      if (topic) {
+        await storage.saveAudioRecording(blob, `${topic.title}_${qIdx}`);
+      }
+      const currentStats = state.stats;
+      dispatch({
+        type: 'UPDATE_STATS',
+        payload: {
+          ...currentStats,
+          totalPractice: currentStats.totalPractice + 1,
+          totalTimeSeconds: currentStats.totalTimeSeconds + elapsed,
+          lastPracticeDate: new Date().toISOString(),
+        },
+      });
+    }
+  }, [dispatch, elapsed, qIdx, state.stats, stopRecording, stopSTT, topic]);
+
   useEffect(() => {
     if (isRecording && remaining <= 0) {
       handleStopRecording();
     }
-  }, [remaining, isRecording]);
+  }, [remaining, isRecording, handleStopRecording]);
 
-  // Reset state when question changes
   useEffect(() => {
     stopTTS();
     if (isRecording) handleStopRecording();
     setShowSample(false);
     resetTimer();
+    // resetTimer/handleStopRecording intentionally omitted to fire on navigation only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicIdx, qIdx]);
 
+  if (!test) return null;
+
+  if (isCompleted) {
+    return <CompletionView totalTopics={test.topics.length} />;
+  }
+
+  if (!topic || !q) return null;
+
   const handleStartRecording = async () => {
+    if (!sttSupported) {
+      // STT 미지원 환경이어도 녹음 자체는 진행 (transcript만 표시 안 됨)
+    }
     resetTimer();
     stopTTS();
     await startRecording();
-    startSTT();
-  };
-
-  const handleStopRecording = async () => {
-    stopSTT();
-    const blob = await stopRecording();
-    if (blob) {
-      const url = await storage.saveAudioRecording(blob, `${topic.title}_${qIdx}`);
-      // Save stats
-      const currentStats = state.stats;
-      const updatedStats = {
-        ...currentStats,
-        totalPractice: currentStats.totalPractice + 1,
-        totalTimeSeconds: currentStats.totalTimeSeconds + elapsed,
-        lastPracticeDate: new Date().toISOString()
-      };
-      dispatch({ type: 'UPDATE_STATS', payload: updatedStats } as any); // we need to add UPDATE_STATS to AppContext if not added
-    }
+    if (sttSupported) startSTT();
   };
 
   const navQ = (delta: number) => {
     dispatch({ type: 'NAV_QUESTION', payload: { delta } });
   };
 
+  const jumpToTopic = (idx: number) => {
+    dispatch({ type: 'JUMP_TO', payload: { topicIdx: idx } });
+  };
+
   return (
     <div className="opic-main-layout">
-      {/* Sidebar (Desktop) */}
       <div className="opic-sidebar">
         <div style={{ fontWeight: 700, marginBottom: '20px' }}>전체 주제 ({test.topics.length})</div>
         <div className="opic-col" style={{ gap: '16px' }}>
@@ -92,14 +107,27 @@ export function MainScreen() {
             const isActive = idx === topicIdx;
             const isDone = idx < topicIdx;
             return (
-              <div key={idx} className="opic-row" style={{ gap: '12px', cursor: 'pointer' }} onClick={() => {
-                dispatch({ type: 'GENERATE_TEST', payload: { ...test } }); // reset
-                // In a real app we'd dispatch a direct jump
-              }}>
-                <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: isActive ? 'var(--opic-primary)' : isDone ? 'var(--opic-ink)' : 'var(--opic-border)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                key={idx}
+                className="opic-row"
+                style={{ gap: '12px', cursor: 'pointer' }}
+                onClick={() => jumpToTopic(idx)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') jumpToTopic(idx); }}
+              >
+                <div style={{
+                  width: '16px', height: '16px', borderRadius: '50%',
+                  background: isActive ? 'var(--opic-primary)' : isDone ? 'var(--opic-ink)' : 'var(--opic-border)',
+                  color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
                   {isDone && <Icons.check />}
                 </div>
-                <div style={{ fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--opic-ink)' : 'var(--opic-ink-mid)', fontSize: '14px' }}>
+                <div style={{
+                  fontWeight: isActive ? 700 : 500,
+                  color: isActive ? 'var(--opic-ink)' : 'var(--opic-ink-mid)',
+                  fontSize: '14px',
+                }}>
                   {t.title_kr}
                 </div>
               </div>
@@ -111,7 +139,6 @@ export function MainScreen() {
       <div className="opic-grow opic-col" style={{ height: '100%' }}>
         <div className="opic-page">
           <div className="opic-page-inner">
-            {/* Meta bar */}
             <div className="opic-row" style={{ justifyContent: 'space-between' }}>
               <div className="opic-row" style={{ gap: '8px' }}>
                 <Tag>{category?.name || '기타'}</Tag>
@@ -119,12 +146,14 @@ export function MainScreen() {
               </div>
               <div className="opic-row" style={{ gap: '4px' }}>
                 {topic.questions.map((_, i) => (
-                  <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: i === qIdx ? 'var(--opic-primary)' : i < qIdx ? 'var(--opic-ink)' : 'var(--opic-border-strong)' }} />
+                  <div key={i} style={{
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: i === qIdx ? 'var(--opic-primary)' : i < qIdx ? 'var(--opic-ink)' : 'var(--opic-border-strong)',
+                  }} />
                 ))}
               </div>
             </div>
 
-            {/* Question Card */}
             <Card>
               <div className="opic-row" style={{ gap: '16px', alignItems: 'flex-start' }}>
                 <div className="opic-grow">
@@ -145,7 +174,7 @@ export function MainScreen() {
                       <button key={r} onClick={() => setQuestionRate(r)} style={{
                         background: questionRate === r ? 'var(--opic-surface)' : 'transparent',
                         border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '12px', fontWeight: 600,
-                        boxShadow: questionRate === r ? '0 1px 2px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer'
+                        boxShadow: questionRate === r ? '0 1px 2px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer',
                       }}>{r}x</button>
                     ))}
                   </div>
@@ -155,7 +184,6 @@ export function MainScreen() {
 
             <ModeSelector mode={mode} onChange={(m) => dispatch({ type: 'SET_MODE', payload: m })} />
 
-            {/* Answer Area */}
             {mode === 'voice' ? (
               <div className="opic-row" style={{ gap: '16px', alignItems: 'stretch' }}>
                 <Card className="opic-grow opic-col" style={{ alignItems: 'center', justifyContent: 'center', minHeight: '260px' }}>
@@ -165,10 +193,25 @@ export function MainScreen() {
                       00:{remaining.toString().padStart(2, '0')}
                     </div>
                   </div>
-                  
+
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-                    {isRecording ? <Waveform recording={true} level={0.8} /> : <div className="opic-sub">녹음 버튼을 눌러 답변을 시작하세요</div>}
+                    {isRecording
+                      ? <Waveform recording={true} getLevel={getLevel} />
+                      : <div className="opic-sub">녹음 버튼을 눌러 답변을 시작하세요</div>}
                   </div>
+
+                  {recorderError && (
+                    <div role="alert" style={{
+                      width: '100%', padding: '10px 12px', borderRadius: '8px', fontSize: '13px',
+                      background: 'var(--opic-rec-soft)', color: 'var(--opic-rec)', marginBottom: '12px',
+                    }}>
+                      {recorderError === 'permission_denied'
+                        ? '마이크 권한이 거부되었습니다. 브라우저/시스템 설정에서 마이크 접근을 허용해주세요.'
+                        : recorderError === 'unsupported'
+                        ? '이 환경에서는 마이크 녹음이 지원되지 않습니다. 텍스트 모드를 사용해주세요.'
+                        : '녹음을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.'}
+                    </div>
+                  )}
 
                   <MicButton recording={isRecording} onClick={isRecording ? handleStopRecording : handleStartRecording} />
                 </Card>
@@ -176,10 +219,12 @@ export function MainScreen() {
                 <Card className="opic-desktop-only" style={{ width: '320px', display: 'flex', flexDirection: 'column' }}>
                   <div className="opic-row" style={{ justifyContent: 'space-between', marginBottom: '16px' }}>
                     <span style={{ fontWeight: 600 }}>실시간 전사</span>
-                    <span className="opic-mono opic-sub">{transcript.split(' ').length} words</span>
+                    <span className="opic-mono opic-sub">{transcript.split(' ').filter(Boolean).length} words</span>
                   </div>
                   <div className="opic-grow opic-scrollable" style={{ fontSize: '14px', lineHeight: 1.5, color: transcript ? 'var(--opic-ink)' : 'var(--opic-ink-low)' }}>
-                    {transcript || "마이크를 통해 말하면 여기에 텍스트가 표시됩니다."}
+                    {!sttSupported
+                      ? '현재 브라우저는 실시간 전사를 지원하지 않습니다. (Chrome/Edge 권장) 녹음은 정상적으로 진행됩니다.'
+                      : transcript || '마이크를 통해 말하면 여기에 텍스트가 표시됩니다.'}
                   </div>
                   <div style={{ marginTop: '16px', padding: '12px', background: 'var(--opic-amber-soft)', color: 'var(--opic-amber)', borderRadius: '8px', fontSize: '12px', display: 'flex', gap: '8px' }}>
                     <Icons.book /> 영어로 답변하다 막히면 한국어를 섞어 말해보세요. 나중에 AI 피드백을 통해 영어 표현을 교정받을 수 있습니다.
@@ -188,8 +233,8 @@ export function MainScreen() {
               </div>
             ) : (
               <Card>
-                <textarea 
-                  className="opic-textarea" 
+                <textarea
+                  className="opic-textarea"
                   value={textAnswer}
                   onChange={(e) => dispatch({ type: 'UPDATE_TEXT_ANSWER', payload: e.target.value })}
                   placeholder="여기에 답변을 입력하세요..."
@@ -203,7 +248,6 @@ export function MainScreen() {
               </Card>
             )}
 
-            {/* Sample Answer */}
             {showSample ? (
               <Card style={{ background: 'var(--opic-sage-soft)', borderColor: 'var(--opic-sage-border)' }}>
                 <div className="opic-row" style={{ justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -231,7 +275,6 @@ export function MainScreen() {
               </div>
             )}
 
-            {/* Nav */}
             <div className="opic-desktop-only opic-row" style={{ justifyContent: 'space-between', marginTop: 'auto', paddingTop: '24px' }}>
               <Button kind="secondary" size="lg" onClick={() => navQ(-1)} disabled={topicIdx === 0 && qIdx === 0}>
                 <Icons.arrowL /> 이전
@@ -241,23 +284,57 @@ export function MainScreen() {
                   <Icons.book /> 관련 질문 연습
                 </Button>
                 <Button size="lg" onClick={() => navQ(1)}>
-                  다음 질문 <Icons.arrowR />
+                  {topicIdx === test.topics.length - 1 && qIdx === topic.questions.length - 1
+                    ? '시험 완료' : '다음 질문'} <Icons.arrowR />
                 </Button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Mobile Bar */}
         <div className="opic-mobile-bar">
           <div className="opic-row" style={{ width: '100%', gap: '12px' }}>
             <Button kind="secondary" size="lg" onClick={() => navQ(-1)} disabled={topicIdx === 0 && qIdx === 0}>
               <Icons.arrowL />
             </Button>
             <Button size="lg" style={{ flex: 1 }} onClick={() => navQ(1)}>
-              다음 질문
+              {topicIdx === test.topics.length - 1 && qIdx === topic.questions.length - 1
+                ? '시험 완료' : '다음 질문'}
             </Button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompletionView({ totalTopics }: { totalTopics: number }) {
+  const { dispatch } = useAppContext();
+  return (
+    <div className="opic-page">
+      <div className="opic-page-inner" style={{ alignItems: 'center', textAlign: 'center', paddingTop: '60px' }}>
+        <div style={{
+          width: '88px', height: '88px', borderRadius: '50%',
+          background: 'var(--opic-sage-soft)', color: 'var(--opic-sage)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '40px', fontWeight: 800, marginBottom: '24px',
+        }}>
+          ✓
+        </div>
+        <div className="opic-h1">모든 질문을 완료했습니다</div>
+        <div className="opic-sub" style={{ marginTop: '8px' }}>
+          총 {totalTopics}개 주제를 모두 학습했어요. 학습 기록에서 통계를 확인해보세요.
+        </div>
+        <div className="opic-row" style={{ gap: '12px', marginTop: '32px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Button size="lg" onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'stats' })}>
+            <Icons.book /> 학습 기록 보기
+          </Button>
+          <Button kind="secondary" size="lg" onClick={() => dispatch({ type: 'JUMP_TO', payload: { topicIdx: 0, questionIdx: 0 } })}>
+            처음부터 다시 풀기
+          </Button>
+          <Button kind="ghost" size="lg" onClick={() => dispatch({ type: 'SET_PHASE', payload: 1 })}>
+            새 시험 만들기
+          </Button>
         </div>
       </div>
     </div>

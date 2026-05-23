@@ -1,40 +1,52 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-export function Waveform({ recording, level = 0.5 }: { recording: boolean; level?: number }) {
-  const [tick, setTick] = useState(0);
-  const BARS = 48;
+type WaveformProps = {
+  recording: boolean;
+  /** Optional callback returning current input level [0..1]. If omitted, a passive idle bar is shown. */
+  getLevel?: () => number;
+};
+
+const BARS = 48;
+
+export function Waveform({ recording, getLevel }: WaveformProps) {
+  const [, forceRender] = useState(0);
+  const history = useRef<number[]>(Array.from({ length: BARS }).map(() => 0));
+  const rafId = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!recording) return;
-    const interval = setInterval(() => setTick(t => t + 1), 90);
-    return () => clearInterval(interval);
-  }, [recording]);
+    if (!recording || !getLevel) {
+      history.current = history.current.map(() => 0);
+      forceRender(t => t + 1);
+      return;
+    }
 
-  const bars = Array.from({ length: BARS }).map((_, i) => {
-    if (!recording) return 3; // idle height
-    
-    // Simple sine wave animation
-    const offset = i * 0.4;
-    const wave = Math.sin(tick * 0.5 + offset);
-    // height between 4px and 40px based on wave and level
-    const baseH = 8;
-    const maxH = 40 * level;
-    const h = baseH + Math.max(0, wave) * maxH;
-    
-    // Add some random noise
-    const noise = Math.random() * 4;
-    return Math.min(60, h + noise);
-  });
+    const tick = () => {
+      const level = getLevel();
+      history.current = [...history.current.slice(1), level];
+      forceRender(t => t + 1);
+      rafId.current = requestAnimationFrame(tick);
+    };
+    rafId.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafId.current !== null) cancelAnimationFrame(rafId.current);
+    };
+  }, [recording, getLevel]);
 
   return (
-    <div className="opic-waveform">
-      {bars.map((h, i) => (
-        <div 
-          key={i} 
-          className={`opic-waveform-bar ${recording ? 'recording' : ''}`}
-          style={{ height: `${h}px` }} 
-        />
-      ))}
+    <div className="opic-waveform" aria-hidden={!recording}>
+      {history.current.map((level, i) => {
+        const minH = 3;
+        const maxH = 56;
+        const h = recording ? minH + level * (maxH - minH) : minH;
+        return (
+          <div
+            key={i}
+            className={`opic-waveform-bar ${recording ? 'recording' : ''}`}
+            style={{ height: `${h}px` }}
+          />
+        );
+      })}
     </div>
   );
 }

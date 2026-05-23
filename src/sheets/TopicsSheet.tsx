@@ -22,10 +22,23 @@ export function TopicsSheet({ open, onClose }: { open: boolean; onClose: () => v
             const isActive = idx === state.currentTopicIdx;
             const isDone = idx < state.currentTopicIdx;
             return (
-              <div key={idx} className="opic-row" style={{ gap: '12px', cursor: 'pointer' }} onClick={() => {
-                dispatch({ type: 'GENERATE_TEST', payload: { ...test } }); // Note: Simplified jump
-                onClose();
-              }}>
+              <div
+                key={idx}
+                className="opic-row"
+                style={{ gap: '12px', cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  dispatch({ type: 'JUMP_TO', payload: { topicIdx: idx } });
+                  onClose();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    dispatch({ type: 'JUMP_TO', payload: { topicIdx: idx } });
+                    onClose();
+                  }
+                }}
+              >
                 <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: isActive ? 'var(--opic-primary)' : isDone ? 'var(--opic-ink)' : 'var(--opic-border)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
                   {isDone ? <Icons.check /> : idx + 1}
                 </div>

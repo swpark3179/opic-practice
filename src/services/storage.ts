@@ -22,13 +22,13 @@ class StorageService {
         const val = await this.store.get<T>(key);
         return val !== null && val !== undefined ? val : defaultValue;
       }
-    } else {
-      const val = localStorage.getItem(key);
-      if (val) {
-        try { return JSON.parse(val); } catch(e) {}
-      }
       return defaultValue;
     }
+    const val = localStorage.getItem(key);
+    if (val) {
+      try { return JSON.parse(val) as T; } catch { /* fall through */ }
+    }
+    return defaultValue;
   }
 
   async set<T>(key: string, value: T): Promise<void> {
