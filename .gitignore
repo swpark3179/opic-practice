@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tauri mobile generated projects (regenerated in CI)
+src-tauri/gen/
+
+# Release setup notes (contain secrets/passwords — local only)
+.github/workflows/RELEASE_SETUP.md
+
+# Claude Code local config
+.claude/
