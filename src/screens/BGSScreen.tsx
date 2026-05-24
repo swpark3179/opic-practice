@@ -92,7 +92,7 @@ export function BGSScreen() {
       <CasualTop step={stepIdx + 1} total={total} onBack={stepIdx > 0 ? goPrev : null} />
       <CasualProgress value={progressValue} />
 
-      <div className={`casual-page ${isSingle ? 'no-cta' : ''}`}>
+      <div className="casual-page">
         <h1 className="casual-h1">{copy.title}</h1>
         <p className="casual-sub">{copy.sub}</p>
 
@@ -182,16 +182,18 @@ export function BGSScreen() {
         )}
       </div>
 
-      {!isSingle && (
-        <CasualBottom>
-          {stepIdx > 0 && (
-            <CasualButton kind="ghost" onClick={goPrev}>이전</CasualButton>
-          )}
-          <CasualButton kind="primary" onClick={goNext} disabled={!canNext}>
-            {stepIdx === total - 1 ? '다 골랐어요' : '다음'} {CIcons.arrow(18)}
+      <CasualBottom split>
+        {stepIdx > 0 ? (
+          <CasualButton kind="soft" size="sm" onClick={goPrev}>
+            {CIcons.back(16)} 이전
           </CasualButton>
-        </CasualBottom>
-      )}
+        ) : (
+          <span className="bottom-spacer" />
+        )}
+        <CasualButton kind="primary" size="sm" onClick={goNext} disabled={!canNext}>
+          {stepIdx === total - 1 ? '다 골랐어요' : '다음'} {CIcons.arrow(16)}
+        </CasualButton>
+      </CasualBottom>
     </>
   );
 }

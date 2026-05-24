@@ -13,6 +13,22 @@ import {
 
 type SheetKind = null | 'sample' | 'kr' | 'topics' | 'transcript';
 
+const SPEED_OPTIONS: { value: number; label: string }[] = [
+  { value: 0.7, label: '0.7×' },
+  { value: 0.85, label: '0.85×' },
+  { value: 1.0, label: '1×' },
+];
+
+function nearestSpeedIdx(rate: number): number {
+  let best = 0;
+  let bestDiff = Infinity;
+  SPEED_OPTIONS.forEach((s, i) => {
+    const d = Math.abs(s.value - rate);
+    if (d < bestDiff) { bestDiff = d; best = i; }
+  });
+  return best;
+}
+
 function fmtTime(s: number) {
   const m = Math.floor(s / 60);
   const ss = String(s % 60).padStart(2, '0');
@@ -120,10 +136,28 @@ export function MainScreen() {
 
         <div style={{ marginBottom: 18 }}>
           <div className="casual-question">{q.q}</div>
-          <button className="casual-kr-button" onClick={() => setSheet('kr')}>
-            <span className="badge">한</span>
-            한국어 보기
-          </button>
+          <div className="casual-quick-row">
+            <button className="casual-kr-button" onClick={() => setSheet('kr')}>
+              <span className="badge">한</span>
+              한국어 보기
+            </button>
+            <button className="casual-kr-button" onClick={() => speak(q.q, state.ttsRate)}>
+              <span className="badge speaker">{CIcons.speaker(10)}</span>
+              질문 듣기
+            </button>
+            <button
+              className="casual-rate-chip"
+              onClick={() => {
+                const cur = nearestSpeedIdx(state.ttsRate);
+                const next = SPEED_OPTIONS[(cur + 1) % SPEED_OPTIONS.length];
+                dispatch({ type: 'SET_TTS_RATE', payload: next.value });
+              }}
+              aria-label={`재생 속도 ${SPEED_OPTIONS[nearestSpeedIdx(state.ttsRate)].label}`}
+            >
+              <span className="label">속도</span>
+              {SPEED_OPTIONS[nearestSpeedIdx(state.ttsRate)].label}
+            </button>
+          </div>
         </div>
 
         {!textMode ? (
@@ -205,8 +239,6 @@ export function MainScreen() {
 
         <div className="casual-actions">
           <SmallLink icon={CIcons.spark(13)} onClick={() => setSheet('sample')}>모범답안</SmallLink>
-          <SmallDot />
-          <SmallLink icon={CIcons.speaker(13)} onClick={() => speak(q.q, state.ttsRate)}>질문 듣기</SmallLink>
           <SmallDot />
           <SmallLink onClick={() => { setTextMode((m) => !m); dispatch({ type: 'SET_MODE', payload: !textMode ? 'text' : 'voice' }); }}>
             {textMode ? '음성으로' : '글로 답하기'}
