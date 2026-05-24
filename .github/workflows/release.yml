@@ -249,12 +249,24 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run tauri -- ios init
 
+      - name: List available Xcode SDKs and destinations
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+          xcrun simctl list devices available || true
+          if [ -d "src-tauri/gen/apple" ]; then
+            SCHEME=$(ls src-tauri/gen/apple/*.xcodeproj 2>/dev/null | head -n 1)
+            if [ -n "$SCHEME" ]; then
+              xcodebuild -project "$SCHEME" -list || true
+            fi
+          fi
+
       - name: Build Tauri iOS (App Store IPA)
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_CERTIFICATE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE_SIGNING_IDENTITY }}
           APPLE_PROVISIONING_PROFILE_UUID: ${{ secrets.APPLE_PROVISIONING_PROFILE_UUID }}
-        run: npm run tauri -- ios build --export-method app-store-connect
+        run: npm run tauri -- ios build --target aarch64-apple-ios --export-method app-store-connect
 
       - name: Locate IPA
         id: locate
