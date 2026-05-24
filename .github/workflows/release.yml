@@ -377,6 +377,31 @@ jobs:
           APPLE_PROVISIONING_PROFILE_UUID: ${{ secrets.APPLE_PROVISIONING_PROFILE_UUID }}
         run: npm run tauri -- ios init --verbose
 
+      - name: Sync iOS app icons into generated Xcode project
+        run: |
+          # `tauri ios init` regenerates src-tauri/gen/apple/ from cargo-mobile2
+          # templates, which ship their own default Tauri icons in
+          # <Product>_iOS/Assets.xcassets/AppIcon.appiconset/. The repo's icons
+          # in src-tauri/icons/ios/ are NOT copied automatically (and
+          # `tauri icon` looks at gen/apple/Assets.xcassets/... — without the
+          # <Product>_iOS/ subdir — so it can't update them either). Copy our
+          # icons into the freshly-generated appiconset so TestFlight builds
+          # use the real app icon. The filenames already match what the
+          # template's Contents.json references, so overwriting is enough.
+          set -e
+          APPICONSET=$(find src-tauri/gen/apple -type d -name "AppIcon.appiconset" -not -path "*/build/*" | head -n 1)
+          if [ -z "$APPICONSET" ] || [ ! -d "$APPICONSET" ]; then
+            echo "::error::Could not locate AppIcon.appiconset under src-tauri/gen/apple"
+            exit 1
+          fi
+          if ! ls src-tauri/icons/ios/AppIcon-*.png >/dev/null 2>&1; then
+            echo "::error::No AppIcon-*.png found in src-tauri/icons/ios/"
+            exit 1
+          fi
+          cp src-tauri/icons/ios/AppIcon-*.png "$APPICONSET/"
+          echo "Synced iOS app icons into $APPICONSET"
+          ls "$APPICONSET"
+
       - name: Override CFBundleVersion with run number
         env:
           BUILD_NUMBER: ${{ github.run_number }}
