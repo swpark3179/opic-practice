@@ -205,10 +205,20 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Select Xcode 16
+      - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.2'
+          xcode-version: latest-stable
+
+      - name: Ensure iOS device platform is installed
+        run: |
+          set -e
+          xcode-select -p
+          xcodebuild -version
+          # macos-15 runners can have the iOS SDK registered without the device
+          # platform support files. This caused: "iOS X.Y is not installed. To use
+          # with Xcode, first download and install the platform".
+          sudo xcodebuild -downloadPlatform iOS
 
       - uses: dtolnay/rust-toolchain@stable
         with:
