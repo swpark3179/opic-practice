@@ -4,6 +4,7 @@ import { SELF_ASSESSMENT } from '../data/selfAssessment';
 import { SALevel } from '../data/types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Tag } from '../components/ui/Tag';
 import { useTTS } from '../hooks/useTTS';
 import { Icons } from '../components/ui/Icons';
 import { generateMainTest } from '../services/testGenerator';
@@ -35,75 +36,78 @@ export function SAScreen() {
           <div className="opic-sub">자신의 수준과 비슷한 난이도를 선택하세요.</div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          {SELF_ASSESSMENT.map(lvl => (
-            <Card 
-              key={lvl.level}
-              className={sa.level === lvl.level ? 'checked' : ''}
-              style={{ 
-                cursor: 'pointer', 
-                border: sa.level === lvl.level ? '2px solid var(--opic-ink)' : undefined 
-              }}
-            >
-              <div onClick={() => {
-                dispatch({ type: 'SET_SA_LEVEL', payload: lvl.level as 'IL'|'IH'|'AL' });
-                dispatch({ type: 'SET_TTS_RATE', payload: lvl.tts_rate });
-              }}>
-                <div className="opic-row" style={{ justifyContent: 'space-between' }}>
-                  <span className="opic-mono" style={{ fontWeight: 800, fontSize: '20px' }}>{lvl.level}</span>
-                  <span className="opic-sub">{lvl.tts_rate}x 배속</span>
+        <div className="opic-sa-levels">
+          {SELF_ASSESSMENT.map(lvl => {
+            const isSelected = sa.level === lvl.level;
+            return (
+              <Card
+                key={lvl.level}
+                className={`opic-sa-level ${isSelected ? 'selected' : ''}`}
+              >
+                <div onClick={() => {
+                  dispatch({ type: 'SET_SA_LEVEL', payload: lvl.level as 'IL'|'IH'|'AL' });
+                  dispatch({ type: 'SET_TTS_RATE', payload: lvl.tts_rate });
+                }}>
+                  <div className="opic-sa-level-head">
+                    <span className="opic-mono opic-sa-level-code">{lvl.level}</span>
+                    <Tag tone="neutral">{lvl.tts_rate}x</Tag>
+                  </div>
+                  <div className="opic-sa-level-name">{lvl.level_kr}</div>
                 </div>
-                <div style={{ fontWeight: 700, marginTop: '12px' }}>{lvl.level_kr}</div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
 
         <Card>
-          <div style={{ fontWeight: 700, marginBottom: '16px' }}>오디오 속도 조절 ({sa.rate}x)</div>
-          <input 
-            type="range" 
-            min="0.5" max="1.5" step="0.05" 
+          <div className="opic-row" style={{ justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ fontWeight: 700 }}>오디오 속도</div>
+            <span className="opic-mono" style={{ fontWeight: 700, fontSize: '14px' }}>{sa.rate.toFixed(2)}x</span>
+          </div>
+          <input
+            type="range"
+            min="0.5" max="1.5" step="0.05"
             value={sa.rate}
             onChange={(e) => dispatch({ type: 'SET_TTS_RATE', payload: parseFloat(e.target.value) })}
             style={{ width: '100%' }}
           />
         </Card>
 
-        <div style={{ fontWeight: 700, fontSize: '18px', marginTop: '16px' }}>샘플 답변 들어보기</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {levelData.options.map(opt => (
-            <Card 
-              key={opt.id}
-              style={{
-                cursor: 'pointer',
-                border: sa.option === opt.id ? '2px solid var(--opic-ink)' : undefined
-              }}
-            >
-              <div onClick={() => dispatch({ type: 'SET_SA_OPTION', payload: opt.id })}>
-                <div className="opic-row" style={{ gap: '12px', marginBottom: '12px' }}>
-                  <div style={{ width: '24px', height: '24px', background: 'var(--opic-ink)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>
-                    {opt.id.split('_')[1]}
+        <div>
+          <div style={{ fontWeight: 700, fontSize: '18px' }}>샘플 답변 들어보기</div>
+          <div className="opic-sub">자신의 수준과 가장 비슷한 답변을 선택하세요.</div>
+        </div>
+        <div className="opic-sa-options">
+          {levelData.options.map(opt => {
+            const isSelected = sa.option === opt.id;
+            return (
+              <Card
+                key={opt.id}
+                className={`opic-sa-option ${isSelected ? 'selected' : ''}`}
+              >
+                <div onClick={() => dispatch({ type: 'SET_SA_OPTION', payload: opt.id })}>
+                  <div className="opic-sa-option-head">
+                    <div className={`opic-sa-option-num ${isSelected ? 'selected' : ''}`}>
+                      {opt.id.split('_')[1]}
+                    </div>
+                    <div className="opic-sa-option-desc">{opt.description}</div>
                   </div>
-                  <div style={{ fontWeight: 600 }}>{opt.description}</div>
-                  <div className="opic-grow" />
-                  <Button 
-                    kind="secondary" size="sm" 
-                    onClick={(((e: any) => {
-                      e.stopPropagation();
-                      if (speaking) stop();
-                      else speak(opt.sample_en, sa.rate);
-                    }) as any)}
-                  >
-                    <Icons.speaker /> 듣기
-                  </Button>
+                  <div className="opic-sa-option-actions">
+                    <Button
+                      kind="secondary" size="sm"
+                      onClick={(((e: any) => {
+                        e.stopPropagation();
+                        if (speaking) stop();
+                        else speak(opt.sample_en, sa.rate);
+                      }) as any)}
+                    >
+                      <Icons.speaker /> {speaking ? '듣기 중지' : '샘플 듣기'}
+                    </Button>
+                  </div>
                 </div>
-                <div style={{ background: 'var(--opic-bg-warm)', padding: '16px', borderRadius: '8px', fontSize: '14px', lineHeight: 1.5, fontStyle: 'italic' }}>
-                  "{opt.sample_en}"
-                </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
 
         <div className="opic-desktop-only" style={{ textAlign: 'right', marginTop: '24px' }}>

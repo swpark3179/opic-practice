@@ -39,8 +39,8 @@ export function BGSScreen() {
       <div className="opic-bgs-header">
         <div className="opic-bgs-header-inner">
           <Card>
-            <div className="opic-row" style={{ justifyContent: 'space-between', marginBottom: '16px' }}>
-              <div>
+            <div className="opic-bgs-head-row">
+              <div className="opic-bgs-head-text">
                 <div className="opic-h1">배경 설문</div>
                 <div className="opic-sub">자신에게 맞는 항목을 선택하세요.</div>
               </div>
@@ -48,16 +48,21 @@ export function BGSScreen() {
                 <Button onClick={handleNext} disabled={!isValid}>다음 단계로</Button>
               </div>
             </div>
-            <div style={{ background: 'var(--opic-border)', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{
-                width: `${Math.min(100, (totalCount / 12) * 100)}%`,
-                height: '100%',
-                background: isValid ? 'var(--opic-sage)' : 'var(--opic-primary)',
-                transition: 'width 0.3s'
-              }} />
-            </div>
-            <div className="opic-sub" style={{ marginTop: '8px', textAlign: 'right' }}>
-              {totalCount} / 12 이상 선택
+            <div className="opic-bgs-progress">
+              <div className="opic-bgs-progress-track">
+                <div
+                  className="opic-bgs-progress-fill"
+                  style={{
+                    width: `${Math.min(100, (totalCount / 12) * 100)}%`,
+                    background: isValid ? 'var(--opic-sage)' : 'var(--opic-primary)',
+                  }}
+                />
+              </div>
+              <div className="opic-bgs-progress-count opic-mono">
+                <span className={isValid ? 'reached' : ''}>{totalCount}</span>
+                <span className="opic-bgs-progress-sep">/</span>
+                <span>12</span>
+              </div>
             </div>
           </Card>
         </div>
@@ -68,9 +73,9 @@ export function BGSScreen() {
           {(BGS_QUESTIONS as any[]).map(q => {
             const selected = answers[q.id] || [];
             return (
-              <div key={q.id} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div className="opic-row" style={{ gap: '8px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '18px' }}>{q.q}</span>
+              <div key={q.id} className="opic-bgs-question">
+                <div className="opic-bgs-question-head">
+                  <span className="opic-bgs-question-text">{q.q}</span>
                   {q.count_target && (
                     <Tag tone={selected.length > 0 ? 'primary' : 'neutral'}>
                       {selected.length} 선택됨
@@ -78,7 +83,7 @@ export function BGSScreen() {
                   )}
                   {q.single && <Tag tone="neutral">단일 선택</Tag>}
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                <div className="opic-bgs-chips">
                   {q.options.map(o => (
                     <Chip
                       key={o.id}
