@@ -1,15 +1,17 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version tag (e.g. v0.1.0)'
+      bump:
+        description: 'Version bump type'
         required: true
-        type: string
+        type: choice
+        default: 'patch'
+        options:
+          - major
+          - minor
+          - patch
 
 permissions:
   contents: write
@@ -26,19 +28,38 @@ jobs:
       version_number: ${{ steps.resolve.outputs.version_number }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Resolve version
         id: resolve
         shell: bash
+        env:
+          BUMP: ${{ github.event.inputs.bump }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
+          set -e
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          if [ -z "$LATEST_TAG" ]; then
+            CURRENT="0.0.0"
+            echo "No existing v* tag found; starting from $CURRENT"
           else
-            VERSION="${GITHUB_REF#refs/tags/}"
+            CURRENT="${LATEST_TAG#v}"
+            echo "Latest tag: $LATEST_TAG (current=$CURRENT)"
           fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "version_number=${VERSION#v}" >> "$GITHUB_OUTPUT"
-          echo "Resolved release version: ${VERSION}"
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+            *) echo "::error::Unknown bump type: $BUMP"; exit 1 ;;
+          esac
+
+          NEW_NUMBER="${MAJOR}.${MINOR}.${PATCH}"
+          NEW_VERSION="v${NEW_NUMBER}"
+          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version_number=${NEW_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "Resolved release version: ${NEW_VERSION} (bump=${BUMP})"
 
   # ---------------------------------------------------------------------------
   # 2a. Build — Windows desktop (.msi + .exe)
