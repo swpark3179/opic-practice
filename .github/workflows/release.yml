@@ -212,13 +212,26 @@ jobs:
 
       - name: Ensure iOS device platform is installed
         run: |
-          set -e
           xcode-select -p
           xcodebuild -version
-          # macos-15 runners can have the iOS SDK registered without the device
-          # platform support files. This caused: "iOS X.Y is not installed. To use
-          # with Xcode, first download and install the platform".
-          sudo xcodebuild -downloadPlatform iOS
+          # latest-stable Xcode usually has the iOS device platform preinstalled,
+          # but the SDK can be registered without platform support on some runner
+          # images. -downloadPlatform installs it; the call occasionally flakes
+          # with transient errors like "Unable to connect to simulator", so retry
+          # and treat persistent failure as non-fatal — if the platform really is
+          # missing, the build step will surface a clear "no destinations" error.
+          ok=0
+          for attempt in 1 2 3; do
+            if sudo xcodebuild -downloadPlatform iOS; then
+              ok=1
+              break
+            fi
+            echo "::warning::-downloadPlatform iOS attempt $attempt failed; retrying"
+            sleep 10
+          done
+          if [ $ok -eq 0 ]; then
+            echo "::warning::-downloadPlatform iOS failed after 3 attempts; continuing"
+          fi
 
       - uses: dtolnay/rust-toolchain@stable
         with:
