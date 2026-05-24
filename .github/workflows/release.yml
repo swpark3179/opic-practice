@@ -405,6 +405,22 @@ jobs:
             || /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
           echo "Set ITSAppUsesNonExemptEncryption=false in $PLIST"
 
+          # Microphone usage description is required for iOS WKWebView to expose
+          # getUserMedia. Without this key iOS denies access (and may terminate
+          # the app), which surfaces as a misleading "HTTPS required" error in
+          # the UI.
+          MIC_DESC="OPIc 답변 녹음을 위해 마이크를 사용합니다."
+          /usr/libexec/PlistBuddy -c "Set :NSMicrophoneUsageDescription ${MIC_DESC}" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string ${MIC_DESC}" "$PLIST"
+          echo "Set NSMicrophoneUsageDescription in $PLIST"
+
+          # Speech recognition usage description (for STT via SFSpeechRecognizer
+          # or webkitSpeechRecognition in WKWebView).
+          SPEECH_DESC="실시간 음성 전사를 위해 음성 인식을 사용합니다."
+          /usr/libexec/PlistBuddy -c "Set :NSSpeechRecognitionUsageDescription ${SPEECH_DESC}" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :NSSpeechRecognitionUsageDescription string ${SPEECH_DESC}" "$PLIST"
+          echo "Set NSSpeechRecognitionUsageDescription in $PLIST"
+
       - name: Force manual code signing in Xcode project
         env:
           APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
