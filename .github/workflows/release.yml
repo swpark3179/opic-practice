@@ -257,7 +257,67 @@ jobs:
       - name: Initialize Tauri iOS project
         env:
           APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERTIFICATE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE_SIGNING_IDENTITY }}
+          APPLE_PROVISIONING_PROFILE_UUID: ${{ secrets.APPLE_PROVISIONING_PROFILE_UUID }}
         run: npm run tauri -- ios init --verbose
+
+      - name: Force manual code signing in Xcode project
+        env:
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERTIFICATE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE_SIGNING_IDENTITY }}
+          APPLE_PROVISIONING_PROFILE_UUID: ${{ secrets.APPLE_PROVISIONING_PROFILE_UUID }}
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+          from pathlib import Path
+
+          team = os.environ["APPLE_DEVELOPMENT_TEAM"]
+          identity = os.environ["APPLE_CERTIFICATE_SIGNING_IDENTITY"]
+          profile = os.environ["APPLE_PROVISIONING_PROFILE_UUID"]
+
+          path = Path("src-tauri/gen/apple/tauri-app.xcodeproj/project.pbxproj")
+          text = path.read_text()
+
+          block_pattern = re.compile(
+              r"(isa = XCBuildConfiguration;[^{}]*?buildSettings = \{)"
+              r"([^{}]*?)"
+              r"(\};\s*name = release;)",
+              re.DOTALL,
+          )
+
+          strip_keys = (
+              "CODE_SIGN_STYLE",
+              "CODE_SIGN_IDENTITY",
+              "CODE_SIGN_IDENTITY\\[sdk=iphoneos\\*\\]",
+              "PROVISIONING_PROFILE_SPECIFIER",
+              "PROVISIONING_PROFILE",
+              "DEVELOPMENT_TEAM",
+          )
+
+          def patch(match: re.Match) -> str:
+              head, settings, tail = match.group(1), match.group(2), match.group(3)
+              for key in strip_keys:
+                  settings = re.sub(
+                      rf"^\s*{key}\s*=.*?;\s*$\n?",
+                      "",
+                      settings,
+                      flags=re.MULTILINE,
+                  )
+              additions = (
+                  f'\n\t\t\t\tCODE_SIGN_STYLE = Manual;'
+                  f'\n\t\t\t\tCODE_SIGN_IDENTITY = "{identity}";'
+                  f'\n\t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "{identity}";'
+                  f'\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile}";'
+                  f'\n\t\t\t\tDEVELOPMENT_TEAM = {team};'
+              )
+              return head + settings.rstrip() + additions + "\n\t\t\t" + tail
+
+          new_text, n = block_pattern.subn(patch, text)
+          if n == 0:
+              sys.exit("ERROR: no release XCBuildConfiguration blocks matched in project.pbxproj")
+          path.write_text(new_text)
+          print(f"Patched {n} release configuration block(s) for manual signing.")
+          PY
 
       - name: Diagnose generated iOS project
         run: |
