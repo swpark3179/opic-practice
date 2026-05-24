@@ -266,7 +266,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_CERTIFICATE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE_SIGNING_IDENTITY }}
           APPLE_PROVISIONING_PROFILE_UUID: ${{ secrets.APPLE_PROVISIONING_PROFILE_UUID }}
-        run: npm run tauri -- ios build --target aarch64-apple-ios --export-method app-store-connect
+        run: npm run tauri -- ios build --target aarch64 --export-method app-store-connect
 
       - name: Locate IPA
         id: locate
