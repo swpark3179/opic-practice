@@ -26,6 +26,7 @@ jobs:
     outputs:
       version: ${{ steps.resolve.outputs.version }}
       version_number: ${{ steps.resolve.outputs.version_number }}
+      previous_version: ${{ steps.resolve.outputs.previous_version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,7 +60,8 @@ jobs:
           NEW_VERSION="v${NEW_NUMBER}"
           echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
           echo "version_number=${NEW_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "Resolved release version: ${NEW_VERSION} (bump=${BUMP})"
+          echo "previous_version=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Resolved release version: ${NEW_VERSION} (bump=${BUMP}, previous=${LATEST_TAG:-none})"
 
   # ---------------------------------------------------------------------------
   # 2a. Build — Windows desktop (.msi + .exe)
@@ -532,4 +534,5 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          previous_tag: ${{ needs.setup.outputs.previous_version }}
           files: release/*
