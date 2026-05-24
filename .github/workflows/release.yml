@@ -406,6 +406,41 @@ jobs:
             echo "Shared scheme already present: $SHARED_DIR/$SCHEME"
           fi
 
+      - name: Configure ExportOptions.plist for manual signing
+        env:
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_PROVISIONING_PROFILE_UUID: ${{ secrets.APPLE_PROVISIONING_PROFILE_UUID }}
+        run: |
+          set -e
+          BUNDLE_ID=$(python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["identifier"])')
+          PLIST=src-tauri/gen/apple/ExportOptions.plist
+          cat > "$PLIST" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store-connect</string>
+              <key>teamID</key>
+              <string>${APPLE_DEVELOPMENT_TEAM}</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>signingCertificate</key>
+              <string>Apple Distribution</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>${BUNDLE_ID}</key>
+                  <string>${APPLE_PROVISIONING_PROFILE_UUID}</string>
+              </dict>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          echo "Wrote ExportOptions.plist for bundle $BUNDLE_ID"
+
       - name: Build Tauri iOS (App Store IPA)
         env:
           APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
