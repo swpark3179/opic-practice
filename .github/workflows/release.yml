@@ -247,18 +247,80 @@ jobs:
       - name: Initialize Tauri iOS project
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: npm run tauri -- ios init
+        run: npm run tauri -- ios init --verbose
 
-      - name: List available Xcode SDKs and destinations
+      - name: Diagnose generated iOS project
         run: |
+          set +e
+          echo "::group::Xcode info"
           xcodebuild -version
           xcodebuild -showsdks
-          xcrun simctl list devices available || true
-          if [ -d "src-tauri/gen/apple" ]; then
-            SCHEME=$(ls src-tauri/gen/apple/*.xcodeproj 2>/dev/null | head -n 1)
-            if [ -n "$SCHEME" ]; then
-              xcodebuild -project "$SCHEME" -list || true
+          xcode-select -p
+          echo "::endgroup::"
+
+          echo "::group::Available simulators"
+          xcrun simctl list devices available
+          echo "::endgroup::"
+
+          if [ ! -d "src-tauri/gen/apple" ]; then
+            echo "::error::src-tauri/gen/apple does not exist — tauri ios init did not generate the project"
+            exit 1
+          fi
+
+          echo "::group::gen/apple tree"
+          find src-tauri/gen/apple -maxdepth 4 -print
+          echo "::endgroup::"
+
+          echo "::group::project.yml (cargo-mobile2)"
+          cat src-tauri/gen/apple/project.yml 2>/dev/null || echo "(no project.yml)"
+          echo "::endgroup::"
+
+          XCODEPROJ=$(ls -d src-tauri/gen/apple/*.xcodeproj 2>/dev/null | head -n 1)
+          if [ -z "$XCODEPROJ" ]; then
+            echo "::error::No .xcodeproj generated"
+            exit 1
+          fi
+          echo "Using xcodeproj: $XCODEPROJ"
+
+          echo "::group::Schemes via xcodebuild -list"
+          xcodebuild -project "$XCODEPROJ" -list
+          echo "::endgroup::"
+
+          echo "::group::Shared schemes on disk"
+          ls -la "$XCODEPROJ/xcshareddata/xcschemes" 2>/dev/null || echo "(no xcshareddata)"
+          ls -la "$XCODEPROJ/xcuserdata" 2>/dev/null || echo "(no xcuserdata)"
+          echo "::endgroup::"
+
+          PROJECT_NAME=$(basename "$XCODEPROJ" .xcodeproj)
+          SCHEME="${PROJECT_NAME}_iOS"
+
+          echo "::group::SUPPORTED_PLATFORMS for $SCHEME"
+          xcodebuild -project "$XCODEPROJ" -scheme "$SCHEME" -showBuildSettings -json 2>/dev/null \
+            | grep -E '"(SUPPORTED_PLATFORMS|PLATFORM_NAME|SDKROOT|TARGETED_DEVICE_FAMILY|IPHONEOS_DEPLOYMENT_TARGET|SUPPORTS_MACCATALYST|EFFECTIVE_PLATFORM_NAME)"' \
+            | sort -u || true
+          echo "::endgroup::"
+
+          echo "::group::Destinations for $SCHEME"
+          xcodebuild -project "$XCODEPROJ" -scheme "$SCHEME" -showdestinations 2>&1 | head -n 60 || true
+          echo "::endgroup::"
+
+      - name: Ensure iOS scheme is shared
+        run: |
+          XCODEPROJ=$(ls -d src-tauri/gen/apple/*.xcodeproj 2>/dev/null | head -n 1)
+          PROJECT_NAME=$(basename "$XCODEPROJ" .xcodeproj)
+          SCHEME="${PROJECT_NAME}_iOS.xcscheme"
+          SHARED_DIR="$XCODEPROJ/xcshareddata/xcschemes"
+          if [ ! -f "$SHARED_DIR/$SCHEME" ]; then
+            mkdir -p "$SHARED_DIR"
+            USER_SCHEME=$(find "$XCODEPROJ/xcuserdata" -name "$SCHEME" 2>/dev/null | head -n 1)
+            if [ -n "$USER_SCHEME" ]; then
+              cp "$USER_SCHEME" "$SHARED_DIR/$SCHEME"
+              echo "Promoted user scheme to shared: $SHARED_DIR/$SCHEME"
+            else
+              echo "::warning::Scheme $SCHEME not found in xcuserdata; nothing to promote"
             fi
+          else
+            echo "Shared scheme already present: $SHARED_DIR/$SCHEME"
           fi
 
       - name: Build Tauri iOS (App Store IPA)
@@ -266,7 +328,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_CERTIFICATE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE_SIGNING_IDENTITY }}
           APPLE_PROVISIONING_PROFILE_UUID: ${{ secrets.APPLE_PROVISIONING_PROFILE_UUID }}
-        run: npm run tauri -- ios build --target aarch64 --export-method app-store-connect
+        run: npm run tauri -- ios build --target aarch64 --export-method app-store-connect --verbose
 
       - name: Locate IPA
         id: locate
