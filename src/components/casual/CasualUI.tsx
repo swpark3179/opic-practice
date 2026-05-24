@@ -105,21 +105,22 @@ export function CasualProgress({ value }: { value: number }) {
   );
 }
 
-export function CasualBottom({ children }: { children: ReactNode }) {
-  return <div className="casual-bottom">{children}</div>;
+export function CasualBottom({ children, split = false }: { children: ReactNode; split?: boolean }) {
+  return <div className={`casual-bottom${split ? ' casual-bottom-split' : ''}`}>{children}</div>;
 }
 
 type BtnProps = {
   kind?: 'primary' | 'soft' | 'ghost';
+  size?: 'md' | 'sm';
   onClick?: () => void;
   disabled?: boolean;
   children: ReactNode;
   style?: React.CSSProperties;
 };
-export function CasualButton({ kind = 'primary', onClick, disabled, children, style }: BtnProps) {
+export function CasualButton({ kind = 'primary', size = 'md', onClick, disabled, children, style }: BtnProps) {
   return (
     <button
-      className={`casual-btn casual-btn-${kind}`}
+      className={`casual-btn casual-btn-${kind} casual-btn-${size}`}
       onClick={onClick}
       disabled={disabled}
       style={style}

@@ -89,9 +89,12 @@ export function SAScreen() {
           </div>
         </div>
 
-        <CasualBottom>
-          <CasualButton kind="primary" onClick={() => setPhase('difficulty')} disabled={!state.saOption}>
-            다음 {CIcons.arrow(18)}
+        <CasualBottom split>
+          <CasualButton kind="soft" size="sm" onClick={() => dispatch({ type: 'SET_PHASE', payload: 1 })}>
+            {CIcons.back(16)} 이전
+          </CasualButton>
+          <CasualButton kind="primary" size="sm" onClick={() => setPhase('difficulty')} disabled={!state.saOption}>
+            다음 {CIcons.arrow(16)}
           </CasualButton>
         </CasualBottom>
       </>
@@ -131,9 +134,12 @@ export function SAScreen() {
         </div>
       </div>
 
-      <CasualBottom>
-        <CasualButton kind="primary" onClick={handleStart} disabled={!state.saDifficulty}>
-          시작하기 {CIcons.arrow(18)}
+      <CasualBottom split>
+        <CasualButton kind="soft" size="sm" onClick={() => setPhase('level')}>
+          {CIcons.back(16)} 이전
+        </CasualButton>
+        <CasualButton kind="primary" size="sm" onClick={handleStart} disabled={!state.saDifficulty}>
+          시작하기 {CIcons.arrow(16)}
         </CasualButton>
       </CasualBottom>
     </>
