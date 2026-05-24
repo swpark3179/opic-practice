@@ -73,6 +73,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Sync release version
+        shell: bash
+        env:
+          NEW_VERSION: ${{ needs.setup.outputs.version_number }}
+        run: |
+          python - <<'PY'
+          import json, os, re, pathlib
+          v = os.environ["NEW_VERSION"]
+
+          p = pathlib.Path("src-tauri/tauri.conf.json")
+          cfg = json.loads(p.read_text())
+          cfg["version"] = v
+          p.write_text(json.dumps(cfg, indent=2) + "\n")
+
+          p = pathlib.Path("package.json")
+          pkg = json.loads(p.read_text())
+          pkg["version"] = v
+          p.write_text(json.dumps(pkg, indent=2) + "\n")
+
+          p = pathlib.Path("src-tauri/Cargo.toml")
+          txt = p.read_text()
+          txt = re.sub(r'^version\s*=\s*"[^"]*"', f'version = "{v}"', txt, count=1, flags=re.MULTILINE)
+          p.write_text(txt)
+          PY
+          echo "Synced version to $NEW_VERSION"
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -108,6 +134,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Sync release version
+        env:
+          NEW_VERSION: ${{ needs.setup.outputs.version_number }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, pathlib
+          v = os.environ["NEW_VERSION"]
+
+          p = pathlib.Path("src-tauri/tauri.conf.json")
+          cfg = json.loads(p.read_text())
+          cfg["version"] = v
+          p.write_text(json.dumps(cfg, indent=2) + "\n")
+
+          p = pathlib.Path("package.json")
+          pkg = json.loads(p.read_text())
+          pkg["version"] = v
+          p.write_text(json.dumps(pkg, indent=2) + "\n")
+
+          p = pathlib.Path("src-tauri/Cargo.toml")
+          txt = p.read_text()
+          txt = re.sub(r'^version\s*=\s*"[^"]*"', f'version = "{v}"', txt, count=1, flags=re.MULTILINE)
+          p.write_text(txt)
+          PY
+          echo "Synced version to $NEW_VERSION"
 
       - uses: actions/setup-node@v4
         with:
@@ -227,6 +278,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Sync release version
+        env:
+          NEW_VERSION: ${{ needs.setup.outputs.version_number }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, pathlib
+          v = os.environ["NEW_VERSION"]
+
+          p = pathlib.Path("src-tauri/tauri.conf.json")
+          cfg = json.loads(p.read_text())
+          cfg["version"] = v
+          p.write_text(json.dumps(cfg, indent=2) + "\n")
+
+          p = pathlib.Path("package.json")
+          pkg = json.loads(p.read_text())
+          pkg["version"] = v
+          p.write_text(json.dumps(pkg, indent=2) + "\n")
+
+          p = pathlib.Path("src-tauri/Cargo.toml")
+          txt = p.read_text()
+          txt = re.sub(r'^version\s*=\s*"[^"]*"', f'version = "{v}"', txt, count=1, flags=re.MULTILINE)
+          p.write_text(txt)
+          PY
+          echo "Synced version to $NEW_VERSION"
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -300,6 +376,27 @@ jobs:
           APPLE_CERTIFICATE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE_SIGNING_IDENTITY }}
           APPLE_PROVISIONING_PROFILE_UUID: ${{ secrets.APPLE_PROVISIONING_PROFILE_UUID }}
         run: npm run tauri -- ios init --verbose
+
+      - name: Override CFBundleVersion with run number
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          set -e
+          PRODUCT_NAME=$(python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["productName"])')
+          PLIST="src-tauri/gen/apple/${PRODUCT_NAME}_iOS/Info.plist"
+          if [ ! -f "$PLIST" ]; then
+            # Fall back to any Info.plist Tauri generated for the app target.
+            PLIST=$(find src-tauri/gen/apple -maxdepth 3 -name Info.plist -not -path "*/build/*" | head -n 1)
+          fi
+          if [ -z "$PLIST" ] || [ ! -f "$PLIST" ]; then
+            echo "::error::Could not locate iOS Info.plist to override CFBundleVersion"
+            exit 1
+          fi
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${BUILD_NUMBER}" "$PLIST"
+          echo "Set CFBundleVersion=${BUILD_NUMBER} in $PLIST"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST" \
+            | xargs -I{} echo "CFBundleShortVersionString={}"
 
       - name: Force manual code signing in Xcode project
         env:
