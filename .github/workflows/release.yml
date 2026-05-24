@@ -126,7 +126,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "::warning::ANDROID_KEYSTORE_BASE64 secret not set — Android build will be unsigned (debug)."
+            echo "::warning::ANDROID_KEYSTORE_BASE64 secret not set — Android release build will fall back to debug signing."
             exit 0
           fi
           KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
@@ -138,8 +138,6 @@ jobs:
           storePassword=${ANDROID_KEYSTORE_PASSWORD}
           EOF
 
-      - name: Wire signing config into build.gradle.kts
-        run: |
           BUILD_GRADLE="src-tauri/gen/android/app/build.gradle.kts"
           if ! grep -q "keystore.properties" "$BUILD_GRADLE"; then
             python3 - <<'PY'
@@ -172,7 +170,12 @@ jobs:
               }
           ''', txt, count=1)
 
-          txt = re.sub(r'getByName\("release"\)\s*\{', 'getByName("release") {\n            signingConfig = signingConfigs.getByName("release")', txt, count=1)
+          txt = re.sub(
+              r'getByName\("release"\)\s*\{',
+              'getByName("release") {\n            if (keystorePropertiesFile.exists()) signingConfig = signingConfigs.getByName("release")',
+              txt,
+              count=1,
+          )
           p.write_text(txt)
           PY
           fi
