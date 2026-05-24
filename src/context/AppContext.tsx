@@ -50,7 +50,7 @@ const initialState: AppState = {
   bgsAnswers: {},
   saLevel: 'AL',
   saOption: null,
-  saDifficulty: null,
+  saDifficulty: 'similar',
   ttsRate: 0.8,
   stats: {
     totalPractice: 0,
@@ -77,7 +77,7 @@ function appReducer(state: AppState, action: Action): AppState {
         bgsAnswers: { ...state.bgsAnswers, [action.payload.questionId]: action.payload.optionIds } 
       };
     case 'SET_SA_LEVEL':
-      return { ...state, saLevel: action.payload, saOption: null, saDifficulty: null };
+      return { ...state, saLevel: action.payload, saOption: null };
     case 'SET_SA_OPTION':
       return { ...state, saOption: action.payload };
     case 'SET_SA_DIFFICULTY':
