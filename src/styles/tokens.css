@@ -1,33 +1,42 @@
 :root {
-  /* Colors */
-  --opic-bg: #FAF8F4;
-  --opic-bg-warm: #F5F0E5;
+  /* Casual palette — warm cream + coral */
+  --opic-bg: #FBF6EC;
+  --opic-bg-warm: #F2EADB;
+  --opic-bg-deep: #F2EADB;
   --opic-surface: #FFFFFF;
-  --opic-border: #ECE7DE;
-  --opic-border-strong: #D8D1C3;
-  --opic-ink: #1B1A17;
-  --opic-ink-mid: #5C574E;
-  --opic-ink-low: #8E887C;
-  --opic-primary: #2D3FAE;
-  --opic-primary-soft: #EEF0FA;
-  --opic-primary-border: #D9DDF2;
-  --opic-rec: #C24A3F;
-  --opic-rec-soft: #FAEDEB;
-  --opic-sage: #3F7A55;
-  --opic-sage-soft: #E8F1EB;
+  --opic-border: #EFE7D5;
+  --opic-border-strong: #E2D6BC;
+
+  --opic-ink: #1F1B14;
+  --opic-ink-mid: #5E574A;
+  --opic-ink-low: #94897A;
+
+  --opic-primary: #E26A3B;
+  --opic-primary-soft: #FCEADB;
+  --opic-primary-border: #F4CDB2;
+  --opic-primary-deep: #C2531F;
+
+  --opic-rec: #D24B3E;
+  --opic-rec-soft: #FBE4E0;
+
+  --opic-sage: #4B8A66;
+  --opic-sage-soft: #E4F0E8;
   --opic-sage-border: #CFE0D5;
+
+  --opic-butter: #F4D86A;
+  --opic-butter-soft: #FCF1C6;
   --opic-amber: #B9821F;
-  --opic-amber-soft: #FBF1DA;
+  --opic-amber-soft: #FCF1C6;
   --opic-amber-border: #EAD7AA;
 
   /* Typography */
   --font-sans: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Spacing & Radius */
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  /* Radius — softer, more pill */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
   --radius-pill: 999px;
 }

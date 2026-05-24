@@ -1,130 +1,162 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { SELF_ASSESSMENT } from '../data/selfAssessment';
+import { SELF_ASSESSMENT, DIFFICULTY_OPTIONS } from '../data/selfAssessment';
 import { SALevel } from '../data/types';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Tag } from '../components/ui/Tag';
 import { useTTS } from '../hooks/useTTS';
-import { Icons } from '../components/ui/Icons';
 import { generateMainTest } from '../services/testGenerator';
+import { CasualTop, CasualProgress, CasualBottom, CasualButton, CIcons } from '../components/casual/CasualUI';
+
+const DIFF_COPY: Record<string, string> = {
+  easy: '쉬운 질문으로 살살 풀어요',
+  similar: '내 수준이랑 비슷하게',
+  difficult: '도전적인 질문으로',
+};
 
 export function SAScreen() {
   const { state, dispatch } = useAppContext();
-  const { speak, stop, speaking } = useTTS();
-  const sa = {
-    level: state.saLevel,
-    option: state.saOption,
-    rate: state.ttsRate
-  };
+  const { speak } = useTTS();
+  const [phase, setPhase] = useState<'level' | 'difficulty'>('level');
 
-  const levelData = SELF_ASSESSMENT.find(l => l.level === sa.level) as any as SALevel;
+  const levelData = SELF_ASSESSMENT.find((l) => l.level === state.saLevel) as any as SALevel;
+
+  const selectLevel = (code: 'IL' | 'IH' | 'AL') => {
+    const lvl = SELF_ASSESSMENT.find((l) => l.level === code);
+    if (!lvl) return;
+    dispatch({ type: 'SET_SA_LEVEL', payload: code });
+    dispatch({ type: 'SET_TTS_RATE', payload: lvl.tts_rate });
+  };
 
   const handleStart = () => {
-    if (sa.option) {
-      const test = generateMainTest(state.bgsAnswers, sa.level, 'similar');
-      dispatch({ type: 'GENERATE_TEST', payload: test });
-      dispatch({ type: 'SET_PHASE', payload: 3 });
-    }
+    if (!state.saOption || !state.saDifficulty) return;
+    const test = generateMainTest(state.bgsAnswers, state.saLevel, state.saDifficulty);
+    dispatch({ type: 'GENERATE_TEST', payload: test });
+    dispatch({ type: 'SET_PHASE', payload: 3 });
   };
 
-  return (
-    <div className="opic-page">
-      <div className="opic-page-inner">
-        <div>
-          <div className="opic-h1">난이도 설정</div>
-          <div className="opic-sub">자신의 수준과 비슷한 난이도를 선택하세요.</div>
-        </div>
+  if (phase === 'level') {
+    return (
+      <>
+        <CasualTop
+          step={2}
+          total={3}
+          onBack={() => dispatch({ type: 'SET_PHASE', payload: 1 })}
+        />
+        <CasualProgress value={66} />
+        <div className="casual-page">
+          <h1 className="casual-h1">지금 영어 <em>어느 정도</em>?</h1>
+          <p className="casual-sub">샘플을 들어보고 비슷하게 말할 수 있는 걸 골라요.</p>
 
-        <div className="opic-sa-levels">
-          {SELF_ASSESSMENT.map(lvl => {
-            const isSelected = sa.level === lvl.level;
-            return (
-              <Card
-                key={lvl.level}
-                className={`opic-sa-level ${isSelected ? 'selected' : ''}`}
-              >
-                <div onClick={() => {
-                  dispatch({ type: 'SET_SA_LEVEL', payload: lvl.level as 'IL'|'IH'|'AL' });
-                  dispatch({ type: 'SET_TTS_RATE', payload: lvl.tts_rate });
-                }}>
-                  <div className="opic-sa-level-head">
-                    <span className="opic-mono opic-sa-level-code">{lvl.level}</span>
-                    <Tag tone="neutral">{lvl.tts_rate}x</Tag>
-                  </div>
-                  <div className="opic-sa-level-name">{lvl.level_kr}</div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-
-        <Card>
-          <div className="opic-row" style={{ justifyContent: 'space-between', marginBottom: '12px' }}>
-            <div style={{ fontWeight: 700 }}>오디오 속도</div>
-            <span className="opic-mono" style={{ fontWeight: 700, fontSize: '14px' }}>{sa.rate.toFixed(2)}x</span>
+          <div className="casual-segment">
+            {SELF_ASSESSMENT.map((l) => {
+              const on = state.saLevel === l.level;
+              return (
+                <button
+                  key={l.level}
+                  className={on ? 'on' : ''}
+                  onClick={() => selectLevel(l.level as any)}
+                >
+                  <div className="casual-segment-code">{l.level}</div>
+                  <div className="casual-segment-desc">{l.level_kr}</div>
+                </button>
+              );
+            })}
           </div>
-          <input
-            type="range"
-            min="0.5" max="1.5" step="0.05"
-            value={sa.rate}
-            onChange={(e) => dispatch({ type: 'SET_TTS_RATE', payload: parseFloat(e.target.value) })}
-            style={{ width: '100%' }}
-          />
-        </Card>
 
-        <div>
-          <div style={{ fontWeight: 700, fontSize: '18px' }}>샘플 답변 들어보기</div>
-          <div className="opic-sub">자신의 수준과 가장 비슷한 답변을 선택하세요.</div>
-        </div>
-        <div className="opic-sa-options">
-          {levelData.options.map(opt => {
-            const isSelected = sa.option === opt.id;
-            return (
-              <Card
-                key={opt.id}
-                className={`opic-sa-option ${isSelected ? 'selected' : ''}`}
-              >
-                <div onClick={() => dispatch({ type: 'SET_SA_OPTION', payload: opt.id })}>
-                  <div className="opic-sa-option-head">
-                    <div className={`opic-sa-option-num ${isSelected ? 'selected' : ''}`}>
-                      {opt.id.split('_')[1]}
-                    </div>
-                    <div className="opic-sa-option-desc">{opt.description}</div>
-                  </div>
-                  <div className="opic-sa-option-actions">
-                    <Button
-                      kind="secondary" size="sm"
-                      onClick={(((e: any) => {
-                        e.stopPropagation();
-                        if (speaking) stop();
-                        else speak(opt.sample_en, sa.rate);
-                      }) as any)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+            {levelData.options.map((o: any) => {
+              const on = state.saOption === o.id;
+              return (
+                <div key={o.id} className={`casual-sa-option ${on ? 'on' : ''}`}>
+                  <div className="desc">{o.description}</div>
+                  <div className="sample-line">"{o.sample_en}"</div>
+                  <div className="row">
+                    <button
+                      className="casual-sa-listen"
+                      onClick={() => speak(o.sample_en, state.ttsRate)}
                     >
-                      <Icons.speaker /> {speaking ? '듣기 중지' : '샘플 듣기'}
-                    </Button>
+                      {CIcons.speaker(13)} 들어보기
+                    </button>
+                    <button
+                      className={`casual-sa-pick ${on ? 'on' : ''}`}
+                      onClick={() => dispatch({ type: 'SET_SA_OPTION', payload: o.id })}
+                    >
+                      {on ? <>{CIcons.check(14)} 이거예요</> : '이거 비슷해요'}
+                    </button>
                   </div>
                 </div>
-              </Card>
+              );
+            })}
+          </div>
+        </div>
+
+        <CasualBottom>
+          <CasualButton kind="primary" onClick={() => setPhase('difficulty')} disabled={!state.saOption}>
+            다음 {CIcons.arrow(18)}
+          </CasualButton>
+        </CasualBottom>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <CasualTop step={2} total={3} onBack={() => setPhase('level')} />
+      <CasualProgress value={88} />
+      <div className="casual-page">
+        <h1 className="casual-h1">질문 <em>난이도</em>는?</h1>
+        <p className="casual-sub">중간에 바꿀 수 있으니 부담 갖지 마요.</p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          {DIFFICULTY_OPTIONS.map((d: any, idx: number) => {
+            const on = state.saDifficulty === d.id;
+            return (
+              <button
+                key={d.id}
+                className={`casual-diff-card ${on ? 'on' : ''}`}
+                onClick={() => dispatch({ type: 'SET_SA_DIFFICULTY', payload: d.id })}
+              >
+                <div className="casual-diff-icon">
+                  <DotPattern n={idx + 1} on={on} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div className="casual-diff-title">{d.text}</div>
+                  <div className="casual-diff-desc">{DIFF_COPY[d.id] || ''}</div>
+                </div>
+                {on && (
+                  <div style={{ color: 'var(--opic-primary)' }}>{CIcons.check(20)}</div>
+                )}
+              </button>
             );
           })}
         </div>
-
-        <div className="opic-desktop-only" style={{ textAlign: 'right', marginTop: '24px' }}>
-          <Button size="lg" onClick={handleStart} disabled={!sa.option}>
-            본시험 시작하기
-          </Button>
-        </div>
       </div>
 
-      <div className="opic-mobile-bar">
-        <div className="opic-row" style={{ gap: '12px', width: '100%' }}>
-          <Button kind="secondary" size="lg" onClick={() => dispatch({ type: 'SET_PHASE', payload: 1 })}>이전</Button>
-          <Button size="lg" style={{ flex: 1 }} onClick={handleStart} disabled={!sa.option}>
-            본시험 시작
-          </Button>
-        </div>
-      </div>
+      <CasualBottom>
+        <CasualButton kind="primary" onClick={handleStart} disabled={!state.saDifficulty}>
+          시작하기 {CIcons.arrow(18)}
+        </CasualButton>
+      </CasualBottom>
+    </>
+  );
+}
+
+function DotPattern({ n, on }: { n: number; on: boolean }) {
+  const bg = on ? '#fff' : 'var(--opic-ink)';
+  return (
+    <div style={{ display: 'flex', gap: 3 }}>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <span
+          key={i}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: i < n ? bg : 'transparent',
+            border: i < n ? 'none' : `1.5px solid ${on ? 'rgba(255,255,255,0.35)' : 'var(--opic-border-strong)'}`,
+            display: 'inline-block',
+          }}
+        />
+      ))}
     </div>
   );
 }

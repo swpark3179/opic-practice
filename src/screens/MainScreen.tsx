@@ -6,13 +6,18 @@ import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useTimer } from '../hooks/useTimer';
 import { storage } from '../services/storage';
 
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Tag } from '../components/ui/Tag';
-import { Icons } from '../components/ui/Icons';
-import { ModeSelector } from '../components/ModeSelector';
-import { Waveform } from '../components/Waveform';
-import { MicButton } from '../components/MicButton';
+import {
+  CasualTop, CasualBottom, CasualButton, CasualSheet,
+  CIcons, SmallLink, SmallDot,
+} from '../components/casual/CasualUI';
+
+type SheetKind = null | 'sample' | 'kr' | 'topics' | 'transcript';
+
+function fmtTime(s: number) {
+  const m = Math.floor(s / 60);
+  const ss = String(s % 60).padStart(2, '0');
+  return `${String(m).padStart(2, '0')}:${ss}`;
+}
 
 export function MainScreen() {
   const { state, dispatch } = useAppContext();
@@ -21,18 +26,19 @@ export function MainScreen() {
   const topicIdx = state.currentTopicIdx;
   const qIdx = state.currentQuestionIdx;
 
-  const { mode, textAnswer } = state;
-  const { speak, stop: stopTTS, speaking } = useTTS();
+  const { speak, stop: stopTTS } = useTTS();
   const { start: startSTT, stop: stopSTT, transcript, supported: sttSupported } = useSTT();
-  const { startRecording, stopRecording, isRecording, error: recorderError, getLevel } = useAudioRecorder();
+  const { startRecording, stopRecording, isRecording, error: recorderError } = useAudioRecorder();
 
-  const [showSample, setShowSample] = useState(false);
-  const [questionRate, setQuestionRate] = useState(0.85);
+  const [sheet, setSheet] = useState<SheetKind>(null);
+  const [textMode, setTextMode] = useState(false);
 
   const isCompleted = !!test && topicIdx >= test.topics.length;
   const topic = !isCompleted && test ? test.topics[topicIdx] : null;
   const q = topic ? topic.questions[qIdx] : null;
-  const category = topic && test ? test.categories.find(c => c.topics.some(t => t.title === topic.title)) : null;
+  const category = topic && test
+    ? test.categories.find((c: any) => c.topics.some((t: any) => t.title === topic.title))
+    : null;
 
   const totalQuestions = test ? test.topics.reduce((sum: number, t: any) => sum + t.questions.length, 0) : 0;
   const overallIdx = test && !isCompleted
@@ -71,296 +77,265 @@ export function MainScreen() {
   useEffect(() => {
     stopTTS();
     if (isRecording) handleStopRecording();
-    setShowSample(false);
+    setSheet(null);
+    setTextMode(false);
     resetTimer();
-    // resetTimer/handleStopRecording intentionally omitted to fire on navigation only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicIdx, qIdx]);
 
   if (!test) return null;
-
   if (isCompleted) {
     return <CompletionView totalTopics={test.topics.length} />;
   }
-
   if (!topic || !q) return null;
 
   const handleStartRecording = async () => {
-    if (!sttSupported) {
-      // STT 미지원 환경이어도 녹음 자체는 진행 (transcript만 표시 안 됨)
-    }
     resetTimer();
     stopTTS();
     await startRecording();
     if (sttSupported) startSTT();
   };
 
-  const navQ = (delta: number) => {
-    dispatch({ type: 'NAV_QUESTION', payload: { delta } });
-  };
-
-  const jumpToTopic = (idx: number) => {
-    dispatch({ type: 'JUMP_TO', payload: { topicIdx: idx } });
-  };
+  const navQ = (delta: number) => dispatch({ type: 'NAV_QUESTION', payload: { delta } });
+  const isLast = topicIdx === test.topics.length - 1 && qIdx === topic.questions.length - 1;
 
   return (
-    <div className="opic-main-layout">
-      <div className="opic-sidebar">
-        <div className="opic-sidebar-title">
-          <span>전체 주제</span>
-          <span className="opic-sidebar-count opic-mono">{test.topics.length}</span>
+    <>
+      <CasualTop
+        step={overallIdx + 1}
+        total={totalQuestions}
+        onBack={overallIdx === 0 ? null : () => navQ(-1)}
+        rightSlot={
+          <button className="casual-top-icon-btn" onClick={() => setSheet('topics')} aria-label="주제 목록">
+            {CIcons.list(18)}
+          </button>
+        }
+      />
+
+      <div className="casual-page" style={{ paddingTop: 4, display: 'flex', flexDirection: 'column' }}>
+        <div className="casual-topic-label">
+          <span className="dot" />
+          <span className="text">{category?.name || '기타'} · {topic.title_kr}</span>
         </div>
-        <div className="opic-sidebar-list">
-          {test.topics.map((t, idx) => {
-            const isActive = idx === topicIdx;
-            const isDone = idx < topicIdx;
+
+        <div style={{ marginBottom: 18 }}>
+          <div className="casual-question">{q.q}</div>
+          <button className="casual-kr-button" onClick={() => setSheet('kr')}>
+            <span className="badge">한</span>
+            한국어 보기
+          </button>
+        </div>
+
+        {!textMode ? (
+          <div className="casual-mic-area">
+            <div className={`casual-mic-bg ${isRecording ? 'rec' : ''}`}>
+              <button
+                className={`casual-mic ${isRecording ? 'rec' : ''}`}
+                onClick={isRecording ? handleStopRecording : handleStartRecording}
+                aria-label={isRecording ? '녹음 멈추기' : '녹음 시작'}
+              >
+                {isRecording ? CIcons.stop(30) : CIcons.mic(36)}
+              </button>
+            </div>
+
+            <div className="casual-timer">
+              {isRecording ? (
+                <>
+                  <div className="rec-label">● 녹음 중</div>
+                  <div className="big">
+                    {fmtTime(elapsed)}
+                    <span className="small"> / {fmtTime(topic.timer)}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="idle-title">준비됐어요?</div>
+                  <div className="idle-sub">
+                    마이크를 누르고 영어로 답해보세요 · 권장 {topic.timer}초
+                  </div>
+                </>
+              )}
+            </div>
+
+            {isRecording && transcript && (
+              <button
+                className="casual-transcript-pill"
+                onClick={() => setSheet('transcript')}
+              >
+                <div className="label">지금 말한 내용</div>
+                <div className="body">{transcript}</div>
+              </button>
+            )}
+
+            {recorderError && (
+              <div className="casual-error" role="alert">
+                {errorMessage(recorderError)}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="casual-textarea-wrap">
+            <textarea
+              className="casual-textarea"
+              value={state.textAnswer}
+              onChange={(e) => dispatch({ type: 'UPDATE_TEXT_ANSWER', payload: e.target.value })}
+              placeholder="여기에 영어로 답을 적어요. 다 적으면 발음 듣기로 확인해볼 수 있어요."
+            />
+            <div className="casual-textarea-meta">
+              <div>
+                <b style={{ color: 'var(--opic-ink)' }}>
+                  {state.textAnswer.split(/\s+/).filter(Boolean).length}
+                </b> words
+              </div>
+              <button
+                className="casual-sa-listen"
+                onClick={() => state.textAnswer.trim() && speak(state.textAnswer, state.ttsRate)}
+                disabled={!state.textAnswer.trim()}
+                style={{
+                  background: state.textAnswer.trim() ? 'var(--opic-ink)' : 'var(--opic-bg-deep)',
+                  color: state.textAnswer.trim() ? 'var(--opic-bg)' : 'var(--opic-ink-low)',
+                  border: 'none',
+                }}
+              >
+                {CIcons.play(12)} 발음 듣기
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="casual-actions">
+          <SmallLink icon={CIcons.spark(13)} onClick={() => setSheet('sample')}>모범답안</SmallLink>
+          <SmallDot />
+          <SmallLink icon={CIcons.speaker(13)} onClick={() => speak(q.q, state.ttsRate)}>질문 듣기</SmallLink>
+          <SmallDot />
+          <SmallLink onClick={() => { setTextMode((m) => !m); dispatch({ type: 'SET_MODE', payload: !textMode ? 'text' : 'voice' }); }}>
+            {textMode ? '음성으로' : '글로 답하기'}
+          </SmallLink>
+          <SmallDot />
+          <SmallLink icon={CIcons.book(13)} onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'knowledge' })}>관련 질문</SmallLink>
+        </div>
+      </div>
+
+      <CasualBottom>
+        <CasualButton kind="primary" onClick={() => navQ(1)}>
+          {isLast ? '시험 완료' : '다음 질문'} {CIcons.arrow(18)}
+        </CasualButton>
+      </CasualBottom>
+
+      <CasualSheet open={sheet === 'kr'} onClose={() => setSheet(null)} title="한국어로 보기">
+        <div style={{ padding: '10px 4px 24px' }}>
+          <div style={{ fontSize: 13, color: 'var(--opic-ink-low)', marginBottom: 8 }}>질문</div>
+          <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.5, marginBottom: 18 }}>{q.kr}</div>
+          <div style={{ fontSize: 13, color: 'var(--opic-ink-low)', marginBottom: 8 }}>원문</div>
+          <div style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--opic-ink-mid)' }}>{q.q}</div>
+        </div>
+      </CasualSheet>
+
+      <CasualSheet open={sheet === 'sample'} onClose={() => setSheet(null)} title="모범 답안">
+        <div style={{ padding: '6px 2px 20px' }}>
+          <div style={{
+            background: 'var(--opic-sage-soft)', borderRadius: 16, padding: 16,
+            fontSize: 15, lineHeight: 1.7, marginBottom: 14,
+          }}>{q.sample}</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <button
+              className="casual-sa-pick on"
+              onClick={() => speak(q.sample, state.ttsRate)}
+              style={{ flex: 'none' }}
+            >{CIcons.play(12)} 듣기 (보통)</button>
+            <button
+              className="casual-sa-listen"
+              onClick={() => speak(q.sample, Math.max(0.5, state.ttsRate - 0.2))}
+            >{CIcons.play(12)} 천천히</button>
+          </div>
+          {q.tip && (
+            <div style={{
+              background: 'var(--opic-butter-soft)', borderRadius: 14, padding: 14,
+              fontSize: 13, lineHeight: 1.6,
+            }}>
+              <b style={{ marginRight: 4 }}>💡 TIP</b> {q.tip}
+            </div>
+          )}
+        </div>
+      </CasualSheet>
+
+      <CasualSheet open={sheet === 'topics'} onClose={() => setSheet(null)} title="주제 고르기">
+        <div style={{ padding: '4px 2px 16px' }}>
+          {test.topics.map((t: any, ti: number) => {
+            const active = ti === topicIdx;
+            const done = ti < topicIdx;
             return (
               <button
-                key={idx}
-                type="button"
-                className={`opic-sidebar-item ${isActive ? 'active' : ''} ${isDone ? 'done' : ''}`}
-                onClick={() => jumpToTopic(idx)}
+                key={ti}
+                className={`casual-topic-item ${active ? 'active' : ''} ${done ? 'done' : ''}`}
+                onClick={() => {
+                  dispatch({ type: 'JUMP_TO', payload: { topicIdx: ti, questionIdx: 0 } });
+                  setSheet(null);
+                }}
               >
-                <span className="opic-sidebar-marker">
-                  {isDone && <Icons.check />}
-                </span>
-                <span className="opic-sidebar-text">{t.title_kr}</span>
+                <span className="num">{done ? CIcons.check(13) : ti + 1}</span>
+                <div style={{ flex: 1 }}>
+                  <div className="cat">{(test.categories.find((c: any) => c.topics.some((x: any) => x.title === t.title)) || {}).name || '기타'}</div>
+                  <div className="name">{t.title_kr}</div>
+                </div>
+                <div className="count">{t.questions.length}문항</div>
               </button>
             );
           })}
         </div>
-      </div>
+      </CasualSheet>
 
-      <div className="opic-grow opic-col" style={{ height: '100%', minWidth: 0, minHeight: 0 }}>
-        <div className="opic-page">
-          <div className="opic-page-inner">
-            <div className="opic-main-head">
-              <div className="opic-main-head-title">
-                <Tag>{category?.name || '기타'}</Tag>
-                <div className="opic-main-topic">{topic.title_kr}</div>
-              </div>
-              <Button
-                kind="ghost"
-                size="sm"
-                onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'topics' })}
-              >
-                <Icons.menu /> {overallIdx + 1} / {totalQuestions}
-              </Button>
-            </div>
-
-            <div className="opic-progress-row">
-              <div className="opic-progress-track">
-                <div
-                  className="opic-progress-fill"
-                  style={{ width: `${totalQuestions > 0 ? ((overallIdx + 1) / totalQuestions) * 100 : 0}%` }}
-                />
-              </div>
-              <div className="opic-question-dots">
-                {topic.questions.map((_, i) => (
-                  <button
-                    key={i}
-                    className={`opic-question-dot ${i === qIdx ? 'current' : i < qIdx ? 'done' : ''}`}
-                    onClick={() => dispatch({ type: 'JUMP_TO', payload: { topicIdx, questionIdx: i } })}
-                    aria-label={`주제 내 ${i + 1}번 질문으로 이동`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <Card>
-              <div className="opic-question-body">
-                <div className="opic-question-text">{q.q}</div>
-                <div className="opic-question-kr">{q.kr}</div>
-              </div>
-              <div className="opic-question-controls">
-                <Button kind="secondary" size="sm" onClick={() => {
-                  if (speaking) stopTTS();
-                  else speak(q.q, questionRate);
-                }}>
-                  <Icons.speaker /> {speaking ? '듣기 중지' : '질문 듣기'}
-                </Button>
-                <div className="opic-speed-presets">
-                  <span className="opic-speed-label">속도</span>
-                  {[0.5, 0.75, 1.0, 1.25, 1.5].map(r => (
-                    <button
-                      key={r}
-                      className={`opic-speed-chip ${Math.abs(questionRate - r) < 0.001 ? 'active' : ''}`}
-                      onClick={() => setQuestionRate(r)}
-                    >
-                      {r}x
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </Card>
-
-            <ModeSelector mode={mode} onChange={(m) => dispatch({ type: 'SET_MODE', payload: m })} />
-
-            {mode === 'voice' ? (
-              <div className="opic-row" style={{ gap: '16px', alignItems: 'stretch' }}>
-                <Card className="opic-grow opic-col" style={{ alignItems: 'center', justifyContent: 'center', minHeight: '260px' }}>
-                  <div className="opic-row" style={{ width: '100%', justifyContent: 'space-between', marginBottom: 'auto' }}>
-                    <Tag tone={isRecording ? 'rec' : 'neutral'}>{isRecording ? '녹음 중' : '대기 중'}</Tag>
-                    <div className="opic-mono" style={{ fontSize: '22px', fontWeight: 700, color: remaining <= 5 ? 'var(--opic-rec)' : 'var(--opic-ink)' }}>
-                      00:{remaining.toString().padStart(2, '0')}
-                    </div>
-                  </div>
-
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-                    {isRecording
-                      ? <Waveform recording={true} getLevel={getLevel} />
-                      : <div className="opic-sub">녹음 버튼을 눌러 답변을 시작하세요</div>}
-                  </div>
-
-                  {recorderError && (
-                    <div role="alert" style={{
-                      width: '100%', padding: '10px 12px', borderRadius: '8px', fontSize: '13px',
-                      background: 'var(--opic-rec-soft)', color: 'var(--opic-rec)', marginBottom: '12px',
-                    }}>
-                      {recorderError === 'permission_denied'
-                        ? '마이크 권한이 거부되었습니다. iOS 설정 → 앱 권한(또는 Safari → 마이크)에서 접근을 허용한 뒤 다시 시도해주세요.'
-                        : recorderError === 'insecure_context'
-                        ? '보안 연결(HTTPS)이 필요합니다. https:// 주소로 접속해 다시 시도해주세요.'
-                        : recorderError === 'no_device'
-                        ? '사용 가능한 마이크를 찾을 수 없습니다. 기기에 마이크가 연결되어 있는지 확인해주세요.'
-                        : recorderError === 'unsupported'
-                        ? '현재 브라우저는 마이크 녹음을 지원하지 않습니다. 최신 Safari/Chrome에서 다시 시도해주세요.'
-                        : '녹음을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.'}
-                    </div>
-                  )}
-
-                  <MicButton recording={isRecording} onClick={isRecording ? handleStopRecording : handleStartRecording} />
-                </Card>
-
-                <Card className="opic-desktop-only" style={{ width: '320px', display: 'flex', flexDirection: 'column' }}>
-                  <div className="opic-row" style={{ justifyContent: 'space-between', marginBottom: '16px' }}>
-                    <span style={{ fontWeight: 600 }}>실시간 전사</span>
-                    <span className="opic-mono opic-sub">{transcript.split(' ').filter(Boolean).length} words</span>
-                  </div>
-                  <div className="opic-grow opic-scrollable" style={{ fontSize: '14px', lineHeight: 1.5, color: transcript ? 'var(--opic-ink)' : 'var(--opic-ink-low)' }}>
-                    {!sttSupported
-                      ? '현재 브라우저는 실시간 전사를 지원하지 않습니다. (Chrome/Edge 권장) 녹음은 정상적으로 진행됩니다.'
-                      : transcript || '마이크를 통해 말하면 여기에 텍스트가 표시됩니다.'}
-                  </div>
-                  <div style={{ marginTop: '16px', padding: '12px', background: 'var(--opic-amber-soft)', color: 'var(--opic-amber)', borderRadius: '8px', fontSize: '12px', display: 'flex', gap: '8px' }}>
-                    <Icons.book /> 영어로 답변하다 막히면 한국어를 섞어 말해보세요. 나중에 AI 피드백을 통해 영어 표현을 교정받을 수 있습니다.
-                  </div>
-                </Card>
-              </div>
-            ) : (
-              <Card>
-                <textarea
-                  className="opic-textarea"
-                  value={textAnswer}
-                  onChange={(e) => dispatch({ type: 'UPDATE_TEXT_ANSWER', payload: e.target.value })}
-                  placeholder="여기에 답변을 입력하세요..."
-                />
-                <div className="opic-row" style={{ justifyContent: 'space-between', marginTop: '12px' }}>
-                  <div className="opic-sub">{textAnswer.split(/\s+/).filter(Boolean).length} words</div>
-                  <Button kind="secondary" size="sm" onClick={() => speak(textAnswer, state.ttsRate)}>
-                    <Icons.play /> 들어보기
-                  </Button>
-                </div>
-              </Card>
-            )}
-
-            {showSample ? (
-              <Card style={{ background: 'var(--opic-sage-soft)', borderColor: 'var(--opic-sage-border)' }}>
-                <div className="opic-row" style={{ justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <div className="opic-row" style={{ gap: '8px' }}>
-                    <span style={{ color: 'var(--opic-sage)', fontWeight: 700 }}>모범 답변</span>
-                    <Tag tone="sage">{state.saLevel}</Tag>
-                  </div>
-                  <Button kind="ghost" size="sm" onClick={() => setShowSample(false)}>닫기</Button>
-                </div>
-                <div style={{ fontSize: '15px', lineHeight: 1.6, marginBottom: '16px' }}>{q.sample}</div>
-                {q.tip && (
-                  <div style={{ padding: '12px', background: 'white', borderRadius: '8px', fontSize: '13px', display: 'flex', gap: '8px' }}>
-                    <span>💡</span> {q.tip}
-                  </div>
-                )}
-                <div style={{ marginTop: '16px', textAlign: 'right' }}>
-                  <Button kind="secondary" size="sm" onClick={() => speak(q.sample, state.ttsRate)}>
-                    <Icons.speaker /> 답변 듣기
-                  </Button>
-                </div>
-              </Card>
-            ) : (
-              <div style={{ textAlign: 'center' }}>
-                <Button kind="text" onClick={() => setShowSample(true)}>모범 답변 보기</Button>
-              </div>
-            )}
-
-            <div className="opic-desktop-only opic-row" style={{ justifyContent: 'space-between', marginTop: 'auto', paddingTop: '24px' }}>
-              <Button kind="secondary" size="lg" onClick={() => navQ(-1)} disabled={topicIdx === 0 && qIdx === 0}>
-                <Icons.arrowL /> 이전
-              </Button>
-              <div className="opic-row" style={{ gap: '12px' }}>
-                <Button kind="secondary" size="lg" onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'knowledge' })}>
-                  <Icons.book /> 관련 질문 연습
-                </Button>
-                <Button size="lg" onClick={() => navQ(1)}>
-                  {topicIdx === test.topics.length - 1 && qIdx === topic.questions.length - 1
-                    ? '시험 완료' : '다음 질문'} <Icons.arrowR />
-                </Button>
-              </div>
-            </div>
+      <CasualSheet open={sheet === 'transcript'} onClose={() => setSheet(null)} title="지금 말한 내용">
+        <div style={{ padding: '4px 2px 20px' }}>
+          <div style={{ fontSize: 15.5, lineHeight: 1.8 }}>
+            {transcript || <span style={{ color: 'var(--opic-ink-low)' }}>
+              {sttSupported ? '아직 녹음된 내용이 없어요' : '이 브라우저는 실시간 전사를 지원하지 않아요. 녹음은 정상적으로 진행돼요.'}
+            </span>}
           </div>
         </div>
-
-        <div className="opic-mobile-bar">
-          <div className="opic-row" style={{ width: '100%', gap: '8px' }}>
-            <Button kind="secondary" size="lg" onClick={() => navQ(-1)} disabled={topicIdx === 0 && qIdx === 0}>
-              <Icons.arrowL />
-            </Button>
-            <Button
-              kind="secondary"
-              size="lg"
-              onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'topics' })}
-              aria-label="전체 문제 목록 열기"
-            >
-              <Icons.menu />
-            </Button>
-            <Button size="lg" style={{ flex: 1 }} onClick={() => navQ(1)}>
-              {topicIdx === test.topics.length - 1 && qIdx === topic.questions.length - 1
-                ? '시험 완료' : '다음 질문'}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+      </CasualSheet>
+    </>
   );
+}
+
+function errorMessage(code: string) {
+  switch (code) {
+    case 'permission_denied':
+      return '마이크 권한이 거부되었어요. 기기 설정에서 마이크 접근을 허용하고 다시 시도해주세요.';
+    case 'insecure_context':
+      return 'https:// 주소로 접속해야 마이크를 쓸 수 있어요.';
+    case 'no_device':
+      return '연결된 마이크를 찾을 수 없어요.';
+    case 'unsupported':
+      return '이 브라우저는 마이크 녹음을 지원하지 않아요.';
+    default:
+      return '녹음을 시작할 수 없어요. 잠시 후 다시 시도해주세요.';
+  }
 }
 
 function CompletionView({ totalTopics }: { totalTopics: number }) {
   const { dispatch } = useAppContext();
   return (
-    <div className="opic-page">
-      <div className="opic-page-inner" style={{ alignItems: 'center', textAlign: 'center', paddingTop: '60px' }}>
-        <div style={{
-          width: '88px', height: '88px', borderRadius: '50%',
-          background: 'var(--opic-sage-soft)', color: 'var(--opic-sage)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '40px', fontWeight: 800, marginBottom: '24px',
-        }}>
-          ✓
-        </div>
-        <div className="opic-h1">모든 질문을 완료했습니다</div>
-        <div className="opic-sub" style={{ marginTop: '8px' }}>
+    <>
+      <CasualTop />
+      <div className="casual-completion">
+        <div className="badge">✓</div>
+        <div className="casual-h1" style={{ marginTop: 0 }}>모든 질문을 완료했어요</div>
+        <div className="casual-sub" style={{ marginTop: 8 }}>
           총 {totalTopics}개 주제를 모두 학습했어요. 학습 기록에서 통계를 확인해보세요.
         </div>
-        <div className="opic-row" style={{ gap: '12px', marginTop: '32px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Button size="lg" onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'stats' })}>
-            <Icons.book /> 학습 기록 보기
-          </Button>
-          <Button kind="secondary" size="lg" onClick={() => dispatch({ type: 'JUMP_TO', payload: { topicIdx: 0, questionIdx: 0 } })}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 32, width: '100%', maxWidth: 320 }}>
+          <CasualButton kind="primary" onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'stats' })}>
+            학습 기록 보기
+          </CasualButton>
+          <CasualButton kind="soft" onClick={() => dispatch({ type: 'JUMP_TO', payload: { topicIdx: 0, questionIdx: 0 } })}>
             처음부터 다시 풀기
-          </Button>
-          <Button kind="ghost" size="lg" onClick={() => dispatch({ type: 'SET_PHASE', payload: 1 })}>
+          </CasualButton>
+          <CasualButton kind="ghost" onClick={() => dispatch({ type: 'SET_PHASE', payload: 1 })}>
             새 시험 만들기
-          </Button>
+          </CasualButton>
         </div>
       </div>
-    </div>
+    </>
   );
 }
