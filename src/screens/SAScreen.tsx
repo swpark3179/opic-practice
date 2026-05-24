@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
-import { SELF_ASSESSMENT, DIFFICULTY_OPTIONS } from '../data/selfAssessment';
-import { SALevel, SADifficulty } from '../data/types';
+import { SELF_ASSESSMENT } from '../data/selfAssessment';
+import { SALevel } from '../data/types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useTTS } from '../hooks/useTTS';
@@ -14,15 +14,14 @@ export function SAScreen() {
   const sa = {
     level: state.saLevel,
     option: state.saOption,
-    difficulty: state.saDifficulty,
     rate: state.ttsRate
   };
 
   const levelData = SELF_ASSESSMENT.find(l => l.level === sa.level) as any as SALevel;
 
   const handleStart = () => {
-    if (sa.option && sa.difficulty) {
-      const test = generateMainTest(state.bgsAnswers, sa.level, sa.difficulty);
+    if (sa.option) {
+      const test = generateMainTest(state.bgsAnswers, sa.level, 'similar');
       dispatch({ type: 'GENERATE_TEST', payload: test });
       dispatch({ type: 'SET_PHASE', payload: 3 });
     }
@@ -107,30 +106,8 @@ export function SAScreen() {
           ))}
         </div>
 
-        {sa.option && (
-          <>
-            <div style={{ fontWeight: 700, fontSize: '18px', marginTop: '16px' }}>비슷한 난이도 선택</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-              {DIFFICULTY_OPTIONS.map(diff => (
-                <Card 
-                  key={diff.id}
-                  style={{
-                    cursor: 'pointer', textAlign: 'center',
-                    border: sa.difficulty === diff.id ? '2px solid var(--opic-ink)' : undefined
-                  }}
-                >
-                  <div onClick={() => dispatch({ type: 'SET_SA_DIFFICULTY', payload: diff.id as any })}>
-                    <div style={{ fontWeight: 700 }}>{diff.text}</div>
-                    <div className="opic-sub">{diff.text_en}</div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </>
-        )}
-
         <div className="opic-desktop-only" style={{ textAlign: 'right', marginTop: '24px' }}>
-          <Button size="lg" onClick={handleStart} disabled={!(sa.option && sa.difficulty)}>
+          <Button size="lg" onClick={handleStart} disabled={!sa.option}>
             본시험 시작하기
           </Button>
         </div>
@@ -139,7 +116,7 @@ export function SAScreen() {
       <div className="opic-mobile-bar">
         <div className="opic-row" style={{ gap: '12px', width: '100%' }}>
           <Button kind="secondary" size="lg" onClick={() => dispatch({ type: 'SET_PHASE', payload: 1 })}>이전</Button>
-          <Button size="lg" style={{ flex: 1 }} onClick={handleStart} disabled={!(sa.option && sa.difficulty)}>
+          <Button size="lg" style={{ flex: 1 }} onClick={handleStart} disabled={!sa.option}>
             본시험 시작
           </Button>
         </div>

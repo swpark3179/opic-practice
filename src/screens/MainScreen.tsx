@@ -34,6 +34,11 @@ export function MainScreen() {
   const q = topic ? topic.questions[qIdx] : null;
   const category = topic && test ? test.categories.find(c => c.topics.some(t => t.title === topic.title)) : null;
 
+  const totalQuestions = test ? test.topics.reduce((sum: number, t: any) => sum + t.questions.length, 0) : 0;
+  const overallIdx = test && !isCompleted
+    ? test.topics.slice(0, topicIdx).reduce((sum: number, t: any) => sum + t.questions.length, 0) + qIdx
+    : totalQuestions;
+
   const { elapsed, reset: resetTimer } = useTimer(isRecording);
   const remaining = topic ? Math.max(0, topic.timer - elapsed) : 0;
 
@@ -139,44 +144,107 @@ export function MainScreen() {
       <div className="opic-grow opic-col" style={{ height: '100%', minWidth: 0, minHeight: 0 }}>
         <div className="opic-page">
           <div className="opic-page-inner">
-            <div className="opic-row" style={{ justifyContent: 'space-between' }}>
+            <div className="opic-row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <div className="opic-row" style={{ gap: '8px' }}>
                 <Tag>{category?.name || '기타'}</Tag>
                 <div style={{ fontWeight: 700 }}>{topic.title_kr}</div>
               </div>
-              <div className="opic-row" style={{ gap: '4px' }}>
-                {topic.questions.map((_, i) => (
-                  <div key={i} style={{
-                    width: '8px', height: '8px', borderRadius: '50%',
-                    background: i === qIdx ? 'var(--opic-primary)' : i < qIdx ? 'var(--opic-ink)' : 'var(--opic-border-strong)',
-                  }} />
-                ))}
+              <div className="opic-row" style={{ gap: '8px' }}>
+                <Button
+                  kind="ghost"
+                  size="sm"
+                  onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'topics' })}
+                >
+                  <Icons.menu /> 문제 {overallIdx + 1} / {totalQuestions}
+                </Button>
               </div>
             </div>
 
+            <div style={{ background: 'var(--opic-border)', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${totalQuestions > 0 ? ((overallIdx + 1) / totalQuestions) * 100 : 0}%`,
+                height: '100%',
+                background: 'var(--opic-primary)',
+                transition: 'width 0.3s',
+              }} />
+            </div>
+
+            <div className="opic-row" style={{ gap: '4px', justifyContent: 'flex-end' }}>
+              {topic.questions.map((_, i) => (
+                <div
+                  key={i}
+                  onClick={() => dispatch({ type: 'JUMP_TO', payload: { topicIdx, questionIdx: i } })}
+                  style={{
+                    width: '14px', height: '14px', borderRadius: '50%', cursor: 'pointer',
+                    background: i === qIdx ? 'var(--opic-primary)' : i < qIdx ? 'var(--opic-ink)' : 'var(--opic-border-strong)',
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`주제 내 ${i + 1}번 질문으로 이동`}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') dispatch({ type: 'JUMP_TO', payload: { topicIdx, questionIdx: i } }); }}
+                />
+              ))}
+            </div>
+
             <Card>
-              <div className="opic-row" style={{ gap: '16px', alignItems: 'flex-start' }}>
-                <div className="opic-grow">
+              <div className="opic-row" style={{ gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div className="opic-grow" style={{ minWidth: '200px' }}>
                   <div style={{ fontSize: '20px', fontWeight: 700, lineHeight: 1.4, marginBottom: '8px' }}>
                     {q.q}
                   </div>
                   <div className="opic-sub">{q.kr}</div>
                 </div>
-                <div className="opic-col" style={{ gap: '8px', alignItems: 'flex-end', minWidth: '120px' }}>
+                <div className="opic-col" style={{ gap: '8px', alignItems: 'stretch', minWidth: '220px' }}>
                   <Button kind="secondary" size="sm" onClick={() => {
                     if (speaking) stopTTS();
                     else speak(q.q, questionRate);
                   }}>
-                    <Icons.speaker /> 질문 듣기
+                    <Icons.speaker /> {speaking ? '듣기 중지' : '질문 듣기'}
                   </Button>
-                  <div className="opic-row" style={{ background: 'var(--opic-bg-warm)', padding: '2px', borderRadius: '6px', gap: '2px' }}>
-                    {[0.5, 0.75, 1.0].map(r => (
-                      <button key={r} onClick={() => setQuestionRate(r)} style={{
-                        background: questionRate === r ? 'var(--opic-surface)' : 'transparent',
-                        border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '12px', fontWeight: 600,
-                        boxShadow: questionRate === r ? '0 1px 2px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer',
-                      }}>{r}x</button>
-                    ))}
+                  <div style={{ background: 'var(--opic-bg-warm)', padding: '10px 12px', borderRadius: '8px' }}>
+                    <div className="opic-row" style={{ justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span className="opic-sub" style={{ marginTop: 0 }}>속도</span>
+                      <span className="opic-mono" style={{ fontWeight: 700, fontSize: '13px' }}>{questionRate.toFixed(2)}x</span>
+                    </div>
+                    <div className="opic-row" style={{ gap: '6px' }}>
+                      <button
+                        aria-label="속도 낮추기"
+                        onClick={() => setQuestionRate(r => Math.max(0.3, Math.round((r - 0.05) * 100) / 100))}
+                        style={{
+                          background: 'var(--opic-surface)', border: '1px solid var(--opic-border)',
+                          borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer',
+                          fontSize: '14px', fontWeight: 700, lineHeight: 1,
+                        }}
+                      >−</button>
+                      <input
+                        type="range"
+                        min={0.3}
+                        max={2}
+                        step={0.05}
+                        value={questionRate}
+                        onChange={(e) => setQuestionRate(parseFloat(e.target.value))}
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        aria-label="속도 올리기"
+                        onClick={() => setQuestionRate(r => Math.min(2, Math.round((r + 0.05) * 100) / 100))}
+                        style={{
+                          background: 'var(--opic-surface)', border: '1px solid var(--opic-border)',
+                          borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer',
+                          fontSize: '14px', fontWeight: 700, lineHeight: 1,
+                        }}
+                      >+</button>
+                    </div>
+                    <div className="opic-row" style={{ gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
+                      {[0.5, 0.75, 1.0, 1.25, 1.5].map(r => (
+                        <button key={r} onClick={() => setQuestionRate(r)} style={{
+                          background: Math.abs(questionRate - r) < 0.001 ? 'var(--opic-ink)' : 'var(--opic-surface)',
+                          color: Math.abs(questionRate - r) < 0.001 ? 'var(--opic-surface)' : 'var(--opic-ink)',
+                          border: '1px solid var(--opic-border)', borderRadius: '4px',
+                          padding: '3px 7px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                        }}>{r}x</button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -206,9 +274,9 @@ export function MainScreen() {
                       background: 'var(--opic-rec-soft)', color: 'var(--opic-rec)', marginBottom: '12px',
                     }}>
                       {recorderError === 'permission_denied'
-                        ? '마이크 권한이 거부되었습니다. 브라우저/시스템 설정에서 마이크 접근을 허용해주세요.'
+                        ? '마이크 권한이 거부되었습니다. 브라우저/시스템 설정에서 마이크 접근을 허용해주세요. (iOS Safari: 설정 → Safari → 마이크)'
                         : recorderError === 'unsupported'
-                        ? '이 환경에서는 마이크 녹음이 지원되지 않습니다. 텍스트 모드를 사용해주세요.'
+                        ? '마이크를 찾을 수 없거나 접근할 수 없습니다. HTTPS 환경에서 다시 시도해주세요.'
                         : '녹음을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.'}
                     </div>
                   )}
@@ -293,9 +361,17 @@ export function MainScreen() {
         </div>
 
         <div className="opic-mobile-bar">
-          <div className="opic-row" style={{ width: '100%', gap: '12px' }}>
+          <div className="opic-row" style={{ width: '100%', gap: '8px' }}>
             <Button kind="secondary" size="lg" onClick={() => navQ(-1)} disabled={topicIdx === 0 && qIdx === 0}>
               <Icons.arrowL />
+            </Button>
+            <Button
+              kind="secondary"
+              size="lg"
+              onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'topics' })}
+              aria-label="전체 문제 목록 열기"
+            >
+              <Icons.menu />
             </Button>
             <Button size="lg" style={{ flex: 1 }} onClick={() => navQ(1)}>
               {topicIdx === test.topics.length - 1 && qIdx === topic.questions.length - 1
