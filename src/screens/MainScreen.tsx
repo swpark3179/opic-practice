@@ -274,9 +274,13 @@ export function MainScreen() {
                       background: 'var(--opic-rec-soft)', color: 'var(--opic-rec)', marginBottom: '12px',
                     }}>
                       {recorderError === 'permission_denied'
-                        ? '마이크 권한이 거부되었습니다. 브라우저/시스템 설정에서 마이크 접근을 허용해주세요. (iOS Safari: 설정 → Safari → 마이크)'
+                        ? '마이크 권한이 거부되었습니다. iOS 설정 → 앱 권한(또는 Safari → 마이크)에서 접근을 허용한 뒤 다시 시도해주세요.'
+                        : recorderError === 'insecure_context'
+                        ? '보안 연결(HTTPS)이 필요합니다. https:// 주소로 접속해 다시 시도해주세요.'
+                        : recorderError === 'no_device'
+                        ? '사용 가능한 마이크를 찾을 수 없습니다. 기기에 마이크가 연결되어 있는지 확인해주세요.'
                         : recorderError === 'unsupported'
-                        ? '마이크를 찾을 수 없거나 접근할 수 없습니다. HTTPS 환경에서 다시 시도해주세요.'
+                        ? '현재 브라우저는 마이크 녹음을 지원하지 않습니다. 최신 Safari/Chrome에서 다시 시도해주세요.'
                         : '녹음을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.'}
                     </div>
                   )}

@@ -1,6 +1,11 @@
 import { useState, useRef, useCallback } from 'react';
 
-export type RecorderError = 'permission_denied' | 'unsupported' | 'unknown';
+export type RecorderError =
+  | 'permission_denied'
+  | 'insecure_context'
+  | 'no_device'
+  | 'unsupported'
+  | 'unknown';
 
 const MIME_CANDIDATES = [
   'audio/webm;codecs=opus',
@@ -102,7 +107,14 @@ export function useAudioRecorder() {
     setError(null);
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError('unsupported');
+      // mediaDevices is gated behind a secure context. If the page is not
+      // secure (e.g. accessed via plain http://lan-ip on iOS Safari), point
+      // the user at the underlying cause instead of "unsupported browser".
+      if (typeof window !== 'undefined' && window.isSecureContext === false) {
+        setError('insecure_context');
+      } else {
+        setError('unsupported');
+      }
       return;
     }
 
@@ -160,9 +172,13 @@ export function useAudioRecorder() {
       setIsRecording(true);
     } catch (e) {
       const err = e as DOMException;
-      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError' || err?.name === 'SecurityError') {
+        // On iOS, a missing NSMicrophoneUsageDescription or a denied prompt
+        // both surface as NotAllowedError / SecurityError here.
         setError('permission_denied');
       } else if (err?.name === 'NotFoundError' || err?.name === 'OverconstrainedError') {
+        setError('no_device');
+      } else if (err?.name === 'NotSupportedError' || err?.name === 'TypeError') {
         setError('unsupported');
       } else {
         setError('unknown');
