@@ -147,9 +147,10 @@ jobs:
           p = pathlib.Path("src-tauri/gen/android/app/build.gradle.kts")
           txt = p.read_text()
 
-          imports = 'import java.util.Properties\nimport java.io.FileInputStream\n'
-          if 'import java.util.Properties' not in txt:
-              txt = imports + txt
+          imports = ('import java.util.Properties', 'import java.io.FileInputStream')
+          for imp in imports:
+              if imp not in txt:
+                  txt = imp + '\n' + txt
 
           load_block = '''
           val keystorePropertiesFile = rootProject.file("keystore.properties")
