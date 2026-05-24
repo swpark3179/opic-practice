@@ -151,6 +151,10 @@
   flex-direction: column;
   height: 100%;
   padding: 16px 14px 100px 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 @container app (min-width: 720px) {
@@ -166,6 +170,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  flex-shrink: 0;
 }
 
 .opic-main-layout {
@@ -173,6 +178,7 @@
   flex-direction: row;
   height: 100%;
   width: 100%;
+  min-height: 0;
 }
 
 .opic-sidebar {
@@ -182,6 +188,11 @@
   border-right: 1px solid var(--opic-border);
   padding: 24px 20px;
   flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 @container app (min-width: 720px) {

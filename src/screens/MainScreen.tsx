@@ -136,7 +136,7 @@ export function MainScreen() {
         </div>
       </div>
 
-      <div className="opic-grow opic-col" style={{ height: '100%' }}>
+      <div className="opic-grow opic-col" style={{ height: '100%', minWidth: 0, minHeight: 0 }}>
         <div className="opic-page">
           <div className="opic-page-inner">
             <div className="opic-row" style={{ justifyContent: 'space-between' }}>
