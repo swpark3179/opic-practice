@@ -106,36 +106,26 @@ export function MainScreen() {
   return (
     <div className="opic-main-layout">
       <div className="opic-sidebar">
-        <div style={{ fontWeight: 700, marginBottom: '20px' }}>전체 주제 ({test.topics.length})</div>
-        <div className="opic-col" style={{ gap: '16px' }}>
+        <div className="opic-sidebar-title">
+          <span>전체 주제</span>
+          <span className="opic-sidebar-count opic-mono">{test.topics.length}</span>
+        </div>
+        <div className="opic-sidebar-list">
           {test.topics.map((t, idx) => {
             const isActive = idx === topicIdx;
             const isDone = idx < topicIdx;
             return (
-              <div
+              <button
                 key={idx}
-                className="opic-row"
-                style={{ gap: '12px', cursor: 'pointer' }}
+                type="button"
+                className={`opic-sidebar-item ${isActive ? 'active' : ''} ${isDone ? 'done' : ''}`}
                 onClick={() => jumpToTopic(idx)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') jumpToTopic(idx); }}
               >
-                <div style={{
-                  width: '16px', height: '16px', borderRadius: '50%',
-                  background: isActive ? 'var(--opic-primary)' : isDone ? 'var(--opic-ink)' : 'var(--opic-border)',
-                  color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
+                <span className="opic-sidebar-marker">
                   {isDone && <Icons.check />}
-                </div>
-                <div style={{
-                  fontWeight: isActive ? 700 : 500,
-                  color: isActive ? 'var(--opic-ink)' : 'var(--opic-ink-mid)',
-                  fontSize: '14px',
-                }}>
-                  {t.title_kr}
-                </div>
-              </div>
+                </span>
+                <span className="opic-sidebar-text">{t.title_kr}</span>
+              </button>
             );
           })}
         </div>
@@ -144,108 +134,62 @@ export function MainScreen() {
       <div className="opic-grow opic-col" style={{ height: '100%', minWidth: 0, minHeight: 0 }}>
         <div className="opic-page">
           <div className="opic-page-inner">
-            <div className="opic-row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-              <div className="opic-row" style={{ gap: '8px' }}>
+            <div className="opic-main-head">
+              <div className="opic-main-head-title">
                 <Tag>{category?.name || '기타'}</Tag>
-                <div style={{ fontWeight: 700 }}>{topic.title_kr}</div>
+                <div className="opic-main-topic">{topic.title_kr}</div>
               </div>
-              <div className="opic-row" style={{ gap: '8px' }}>
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'topics' })}
-                >
-                  <Icons.menu /> 문제 {overallIdx + 1} / {totalQuestions}
-                </Button>
-              </div>
+              <Button
+                kind="ghost"
+                size="sm"
+                onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'topics' })}
+              >
+                <Icons.menu /> {overallIdx + 1} / {totalQuestions}
+              </Button>
             </div>
 
-            <div style={{ background: 'var(--opic-border)', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{
-                width: `${totalQuestions > 0 ? ((overallIdx + 1) / totalQuestions) * 100 : 0}%`,
-                height: '100%',
-                background: 'var(--opic-primary)',
-                transition: 'width 0.3s',
-              }} />
-            </div>
-
-            <div className="opic-row" style={{ gap: '4px', justifyContent: 'flex-end' }}>
-              {topic.questions.map((_, i) => (
+            <div className="opic-progress-row">
+              <div className="opic-progress-track">
                 <div
-                  key={i}
-                  onClick={() => dispatch({ type: 'JUMP_TO', payload: { topicIdx, questionIdx: i } })}
-                  style={{
-                    width: '14px', height: '14px', borderRadius: '50%', cursor: 'pointer',
-                    background: i === qIdx ? 'var(--opic-primary)' : i < qIdx ? 'var(--opic-ink)' : 'var(--opic-border-strong)',
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`주제 내 ${i + 1}번 질문으로 이동`}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') dispatch({ type: 'JUMP_TO', payload: { topicIdx, questionIdx: i } }); }}
+                  className="opic-progress-fill"
+                  style={{ width: `${totalQuestions > 0 ? ((overallIdx + 1) / totalQuestions) * 100 : 0}%` }}
                 />
-              ))}
+              </div>
+              <div className="opic-question-dots">
+                {topic.questions.map((_, i) => (
+                  <button
+                    key={i}
+                    className={`opic-question-dot ${i === qIdx ? 'current' : i < qIdx ? 'done' : ''}`}
+                    onClick={() => dispatch({ type: 'JUMP_TO', payload: { topicIdx, questionIdx: i } })}
+                    aria-label={`주제 내 ${i + 1}번 질문으로 이동`}
+                  />
+                ))}
+              </div>
             </div>
 
             <Card>
-              <div className="opic-row" style={{ gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div className="opic-grow" style={{ minWidth: '200px' }}>
-                  <div style={{ fontSize: '20px', fontWeight: 700, lineHeight: 1.4, marginBottom: '8px' }}>
-                    {q.q}
-                  </div>
-                  <div className="opic-sub">{q.kr}</div>
-                </div>
-                <div className="opic-col" style={{ gap: '8px', alignItems: 'stretch', minWidth: '220px' }}>
-                  <Button kind="secondary" size="sm" onClick={() => {
-                    if (speaking) stopTTS();
-                    else speak(q.q, questionRate);
-                  }}>
-                    <Icons.speaker /> {speaking ? '듣기 중지' : '질문 듣기'}
-                  </Button>
-                  <div style={{ background: 'var(--opic-bg-warm)', padding: '10px 12px', borderRadius: '8px' }}>
-                    <div className="opic-row" style={{ justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span className="opic-sub" style={{ marginTop: 0 }}>속도</span>
-                      <span className="opic-mono" style={{ fontWeight: 700, fontSize: '13px' }}>{questionRate.toFixed(2)}x</span>
-                    </div>
-                    <div className="opic-row" style={{ gap: '6px' }}>
-                      <button
-                        aria-label="속도 낮추기"
-                        onClick={() => setQuestionRate(r => Math.max(0.3, Math.round((r - 0.05) * 100) / 100))}
-                        style={{
-                          background: 'var(--opic-surface)', border: '1px solid var(--opic-border)',
-                          borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer',
-                          fontSize: '14px', fontWeight: 700, lineHeight: 1,
-                        }}
-                      >−</button>
-                      <input
-                        type="range"
-                        min={0.3}
-                        max={2}
-                        step={0.05}
-                        value={questionRate}
-                        onChange={(e) => setQuestionRate(parseFloat(e.target.value))}
-                        style={{ flex: 1 }}
-                      />
-                      <button
-                        aria-label="속도 올리기"
-                        onClick={() => setQuestionRate(r => Math.min(2, Math.round((r + 0.05) * 100) / 100))}
-                        style={{
-                          background: 'var(--opic-surface)', border: '1px solid var(--opic-border)',
-                          borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer',
-                          fontSize: '14px', fontWeight: 700, lineHeight: 1,
-                        }}
-                      >+</button>
-                    </div>
-                    <div className="opic-row" style={{ gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
-                      {[0.5, 0.75, 1.0, 1.25, 1.5].map(r => (
-                        <button key={r} onClick={() => setQuestionRate(r)} style={{
-                          background: Math.abs(questionRate - r) < 0.001 ? 'var(--opic-ink)' : 'var(--opic-surface)',
-                          color: Math.abs(questionRate - r) < 0.001 ? 'var(--opic-surface)' : 'var(--opic-ink)',
-                          border: '1px solid var(--opic-border)', borderRadius: '4px',
-                          padding: '3px 7px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
-                        }}>{r}x</button>
-                      ))}
-                    </div>
-                  </div>
+              <div className="opic-question-body">
+                <div className="opic-question-text">{q.q}</div>
+                <div className="opic-question-kr">{q.kr}</div>
+              </div>
+              <div className="opic-question-controls">
+                <Button kind="secondary" size="sm" onClick={() => {
+                  if (speaking) stopTTS();
+                  else speak(q.q, questionRate);
+                }}>
+                  <Icons.speaker /> {speaking ? '듣기 중지' : '질문 듣기'}
+                </Button>
+                <div className="opic-speed-presets">
+                  <span className="opic-speed-label">속도</span>
+                  {[0.5, 0.75, 1.0, 1.25, 1.5].map(r => (
+                    <button
+                      key={r}
+                      className={`opic-speed-chip ${Math.abs(questionRate - r) < 0.001 ? 'active' : ''}`}
+                      onClick={() => setQuestionRate(r)}
+                    >
+                      {r}x
+                    </button>
+                  ))}
                 </div>
               </div>
             </Card>
