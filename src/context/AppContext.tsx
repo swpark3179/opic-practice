@@ -51,7 +51,7 @@ const initialState: AppState = {
   saLevel: 'AL',
   saOption: null,
   saDifficulty: 'similar',
-  ttsRate: 0.8,
+  ttsRate: 1.0,
   stats: {
     totalPractice: 0,
     totalTimeSeconds: 0,
