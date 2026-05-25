@@ -890,6 +890,62 @@
   overflow: hidden;
 }
 
+.casual-transcript-block {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: var(--opic-surface);
+  border-radius: 14px;
+  border: 1px solid var(--opic-border);
+  width: 100%;
+  text-align: left;
+  color: var(--opic-ink);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.casual-transcript-block .head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.casual-transcript-block .label {
+  font-size: 10.5px;
+  color: var(--opic-ink-low);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.casual-transcript-block .body {
+  font-size: 14px;
+  color: var(--opic-ink);
+  line-height: 1.6;
+  max-height: 180px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.casual-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 1px solid var(--opic-border);
+  background: var(--opic-bg);
+  color: var(--opic-ink);
+  cursor: pointer;
+}
+.casual-play-btn.playing {
+  background: var(--opic-ink);
+  color: var(--opic-bg);
+  border-color: var(--opic-ink);
+}
+
 /* ===== Main: 텍스트 모드 ===== */
 .casual-textarea-wrap {
   flex: 1;

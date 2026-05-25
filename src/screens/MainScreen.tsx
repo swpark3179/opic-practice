@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useTTS } from '../hooks/useTTS';
 import { useSTT } from '../hooks/useSTT';
@@ -49,6 +49,37 @@ export function MainScreen() {
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [textMode, setTextMode] = useState(false);
   const [hasRecording, setHasRecording] = useState(false);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stopPlayback = useCallback(() => {
+    const a = audioRef.current;
+    if (a) {
+      a.pause();
+      a.currentTime = 0;
+    }
+    setIsPlaying(false);
+  }, []);
+
+  const togglePlayback = useCallback(() => {
+    if (!recordedUrl) return;
+    let a = audioRef.current;
+    if (!a) {
+      a = new Audio(recordedUrl);
+      audioRef.current = a;
+      a.onended = () => setIsPlaying(false);
+      a.onpause = () => setIsPlaying(false);
+    }
+    if (isPlaying) {
+      a.pause();
+      a.currentTime = 0;
+      setIsPlaying(false);
+    } else {
+      a.currentTime = 0;
+      a.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+    }
+  }, [recordedUrl, isPlaying]);
 
   const isCompleted = !!test && topicIdx >= test.topics.length;
   const topic = !isCompleted && test ? test.topics[topicIdx] : null;
@@ -69,6 +100,16 @@ export function MainScreen() {
     const blob = await stopRecording();
     if (blob) {
       setHasRecording(true);
+      const url = URL.createObjectURL(blob);
+      setRecordedUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setIsPlaying(false);
       if (topic) {
         await storage.saveAudioRecording(blob, `${topic.title}_${qIdx}`);
       }
@@ -91,10 +132,27 @@ export function MainScreen() {
     setSheet(null);
     setTextMode(false);
     setHasRecording(false);
+    stopPlayback();
+    setRecordedUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    audioRef.current = null;
     resetSTT();
     resetTimer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicIdx, qIdx]);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!test) return null;
   if (isCompleted) {
@@ -106,6 +164,12 @@ export function MainScreen() {
     resetTimer();
     resetSTT();
     setHasRecording(false);
+    stopPlayback();
+    setRecordedUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    audioRef.current = null;
     stopTTS();
     await startRecording();
     if (sttSupported) startSTT();
@@ -193,16 +257,34 @@ export function MainScreen() {
               )}
             </div>
 
-            {(isRecording || hasRecording) && transcript && (
-              <button
-                className="casual-transcript-pill"
-                onClick={() => setSheet('transcript')}
-              >
-                <div className="label">
-                  {isRecording ? '지금 말한 내용' : '녹음된 내용 (텍스트)'}
+            {(isRecording || hasRecording) && (transcript || hasRecording) && (
+              <div className="casual-transcript-block">
+                <div className="head">
+                  <div className="label">
+                    {isRecording ? '지금 말한 내용' : '녹음된 내용 (텍스트)'}
+                  </div>
+                  {hasRecording && recordedUrl && (
+                    <button
+                      type="button"
+                      className={`casual-play-btn ${isPlaying ? 'playing' : ''}`}
+                      onClick={togglePlayback}
+                      aria-label={isPlaying ? '재생 중지' : '녹음 재생'}
+                    >
+                      {isPlaying ? CIcons.stop(13) : CIcons.play(13)}
+                      {isPlaying ? '중지' : '재생'}
+                    </button>
+                  )}
                 </div>
-                <div className="body">{transcript}</div>
-              </button>
+                <div className="body">
+                  {transcript || (
+                    <span style={{ color: 'var(--opic-ink-low)' }}>
+                      {sttSupported
+                        ? '아직 인식된 내용이 없어요'
+                        : '이 브라우저는 실시간 전사를 지원하지 않아요. 녹음은 정상적으로 진행돼요.'}
+                    </span>
+                  )}
+                </div>
+              </div>
             )}
 
             {recorderError && (
