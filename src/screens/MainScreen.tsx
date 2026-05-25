@@ -13,20 +13,12 @@ import {
 
 type SheetKind = null | 'sample' | 'kr' | 'topics' | 'transcript';
 
-const SPEED_OPTIONS: { value: number; label: string }[] = [
-  { value: 0.7, label: '0.7×' },
-  { value: 0.85, label: '0.85×' },
-  { value: 1.0, label: '1×' },
-];
+const SPEED_MIN = 0.5;
+const SPEED_MAX = 1.5;
+const SPEED_STEP = 0.05;
 
-function nearestSpeedIdx(rate: number): number {
-  let best = 0;
-  let bestDiff = Infinity;
-  SPEED_OPTIONS.forEach((s, i) => {
-    const d = Math.abs(s.value - rate);
-    if (d < bestDiff) { bestDiff = d; best = i; }
-  });
-  return best;
+function fmtRate(rate: number) {
+  return `${rate.toFixed(2).replace(/\.?0+$/, '')}×`;
 }
 
 function fmtTime(s: number) {
@@ -42,12 +34,13 @@ export function MainScreen() {
   const topicIdx = state.currentTopicIdx;
   const qIdx = state.currentQuestionIdx;
 
-  const { speak, stop: stopTTS } = useTTS();
+  const { speak, stop: stopTTS, speaking } = useTTS();
   const { start: startSTT, stop: stopSTT, reset: resetSTT, transcript, supported: sttSupported } = useSTT();
   const { startRecording, stopRecording, isRecording, error: recorderError } = useAudioRecorder();
 
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [textMode, setTextMode] = useState(false);
+  const [speedOpen, setSpeedOpen] = useState(false);
   const [hasRecording, setHasRecording] = useState(false);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -204,22 +197,57 @@ export function MainScreen() {
               <span className="badge">한</span>
               한국어 보기
             </button>
-            <button className="casual-kr-button" onClick={() => speak(q.q, state.ttsRate)}>
-              <span className="badge speaker">{CIcons.speaker(10)}</span>
-              질문 듣기
-            </button>
             <button
-              className="casual-rate-chip"
+              className={`casual-kr-button ${speaking ? 'speaking' : ''}`}
               onClick={() => {
-                const cur = nearestSpeedIdx(state.ttsRate);
-                const next = SPEED_OPTIONS[(cur + 1) % SPEED_OPTIONS.length];
-                dispatch({ type: 'SET_TTS_RATE', payload: next.value });
+                if (speaking) stopTTS();
+                else speak(q.q, state.ttsRate);
               }}
-              aria-label={`재생 속도 ${SPEED_OPTIONS[nearestSpeedIdx(state.ttsRate)].label}`}
             >
-              <span className="label">속도</span>
-              {SPEED_OPTIONS[nearestSpeedIdx(state.ttsRate)].label}
+              <span className="badge speaker">
+                {speaking ? CIcons.stop(10) : CIcons.speaker(10)}
+              </span>
+              {speaking ? '듣기 중지' : '질문 듣기'}
             </button>
+            <div className="casual-rate-wrap">
+              <button
+                className={`casual-rate-chip ${speedOpen ? 'open' : ''}`}
+                onClick={() => setSpeedOpen((o) => !o)}
+                aria-label={`재생 속도 ${fmtRate(state.ttsRate)}`}
+                aria-expanded={speedOpen}
+              >
+                <span className="label">속도</span>
+                {fmtRate(state.ttsRate)}
+              </button>
+              {speedOpen && (
+                <>
+                  <div className="casual-rate-backdrop" onClick={() => setSpeedOpen(false)} />
+                  <div className="casual-rate-popover" role="dialog" aria-label="재생 속도 조절">
+                    <div className="casual-rate-popover-head">
+                      <span>재생 속도</span>
+                      <b>{fmtRate(state.ttsRate)}</b>
+                    </div>
+                    <input
+                      type="range"
+                      min={SPEED_MIN}
+                      max={SPEED_MAX}
+                      step={SPEED_STEP}
+                      value={state.ttsRate}
+                      onChange={(e) =>
+                        dispatch({ type: 'SET_TTS_RATE', payload: Number(e.target.value) })
+                      }
+                      className="casual-rate-slider"
+                      aria-label="재생 속도 슬라이더"
+                    />
+                    <div className="casual-rate-ticks">
+                      <span>{SPEED_MIN}×</span>
+                      <span>1×</span>
+                      <span>{SPEED_MAX}×</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -326,7 +354,15 @@ export function MainScreen() {
         <div className="casual-actions">
           <SmallLink icon={CIcons.spark(13)} onClick={() => setSheet('sample')}>모범답안</SmallLink>
           <SmallDot />
-          <SmallLink onClick={() => { setTextMode((m) => !m); dispatch({ type: 'SET_MODE', payload: !textMode ? 'text' : 'voice' }); }}>
+          <SmallLink onClick={async () => {
+            const next = !textMode;
+            if (next && isRecording) {
+              await handleStopRecording();
+            }
+            if (next) stopTTS();
+            setTextMode(next);
+            dispatch({ type: 'SET_MODE', payload: next ? 'text' : 'voice' });
+          }}>
             {textMode ? '음성으로' : '글로 답하기'}
           </SmallLink>
           <SmallDot />
