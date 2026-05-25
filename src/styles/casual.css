@@ -29,7 +29,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px 8px;
+  padding: calc(14px + env(safe-area-inset-top)) 18px 8px;
   flex-shrink: 0;
 }
 .casual-top-back,
@@ -79,6 +79,59 @@
   background: var(--opic-primary);
   border-radius: 999px;
   transition: width 0.35s cubic-bezier(.2,.7,.2,1);
+}
+
+/* ===== BGS 합계 카운터 (취미·관심사 12+ 누적) ===== */
+.bgs-combo-counter {
+  margin: 0 22px 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--opic-bg-deep);
+  border: 1px dashed var(--opic-border-strong);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--opic-ink-mid);
+}
+.bgs-combo-counter.met {
+  background: var(--opic-sage-soft);
+  border-color: var(--opic-sage-border);
+  border-style: solid;
+  color: var(--opic-ink);
+}
+.bgs-combo-counter-label {
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+.bgs-combo-counter-value {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.bgs-combo-counter-value b {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--opic-ink);
+}
+.bgs-combo-counter.met .bgs-combo-counter-value b {
+  color: var(--opic-sage);
+}
+.bgs-combo-counter-min {
+  font-size: 11.5px;
+  color: var(--opic-ink-low);
+  font-weight: 600;
+}
+.bgs-combo-counter-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--opic-sage);
+  color: #fff;
+  display: grid;
+  place-items: center;
 }
 
 /* ===== 페이지 본문 ===== */
@@ -483,7 +536,168 @@
   border-color: var(--opic-ink);
 }
 
-/* ===== SA 난이도 카드 ===== */
+/* ===== SA: 속도 스피너 ===== */
+.sa-speed-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--opic-surface);
+  border: 1px solid var(--opic-border);
+  border-radius: 14px;
+  margin-bottom: 18px;
+}
+.sa-speed-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--opic-ink-mid);
+  letter-spacing: -0.2px;
+}
+.sa-speed-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--opic-bg-deep);
+  border-radius: 999px;
+  padding: 3px;
+}
+.sa-speed-step {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: var(--opic-surface);
+  color: var(--opic-ink);
+  font-size: 16px;
+  font-weight: 800;
+  font-family: inherit;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 1px 2px rgba(20, 15, 8, 0.08);
+}
+.sa-speed-step:disabled {
+  opacity: 0.35;
+  box-shadow: none;
+}
+.sa-speed-step:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.sa-speed-value {
+  min-width: 56px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--opic-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
+}
+
+/* ===== SA: 6 난이도 카드 ===== */
+.sa-difficulty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.sa-difficulty-card {
+  border-radius: 18px;
+  background: var(--opic-surface);
+  border: 1.5px solid var(--opic-border);
+  overflow: hidden;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.sa-difficulty-card.on {
+  border-color: var(--opic-primary);
+  background: var(--opic-primary-soft);
+}
+.sa-difficulty-body {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 14px 16px 12px;
+  color: var(--opic-ink);
+  font-family: inherit;
+  display: block;
+}
+.sa-difficulty-body:active { transform: scale(0.995); }
+.sa-difficulty-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.sa-difficulty-num {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--opic-ink);
+  color: var(--opic-bg);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+.sa-difficulty-card.on .sa-difficulty-num {
+  background: var(--opic-primary);
+  color: #fff;
+}
+.sa-difficulty-grade {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--opic-ink-mid);
+  background: var(--opic-bg-deep);
+  padding: 3px 9px;
+  border-radius: 999px;
+  letter-spacing: -0.2px;
+}
+.sa-difficulty-card.on .sa-difficulty-grade {
+  background: #fff;
+  color: var(--opic-primary-deep);
+}
+.sa-difficulty-pick {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--opic-primary-deep);
+  letter-spacing: -0.2px;
+}
+.sa-difficulty-desc {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--opic-ink);
+  font-weight: 500;
+}
+.sa-difficulty-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 16px 12px;
+}
+.sa-listen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--opic-border);
+  background: var(--opic-surface);
+  color: var(--opic-ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.sa-listen-btn.playing {
+  background: var(--opic-ink);
+  color: var(--opic-bg);
+  border-color: var(--opic-ink);
+}
+.sa-listen-btn:active { transform: scale(0.97); }
+
+/* ===== SA 난이도 카드 (legacy) ===== */
 .casual-diff-card {
   text-align: left;
   padding: 20px 22px;
@@ -618,6 +832,12 @@
 .casual-timer .rec-label {
   font-size: 14px;
   color: var(--opic-rec);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.casual-timer .done-label {
+  font-size: 14px;
+  color: var(--opic-sage);
   font-weight: 700;
   margin-bottom: 4px;
 }

@@ -13,9 +13,7 @@ export function useSTT() {
 
   const start = () => {
     setTranscript('');
-    stt.start((text, isFinal) => {
-      // In a real app we might handle interim vs final differently
-      // For now just append everything or replace depending on how WebSpeech sends it
+    stt.start((text, _isFinal) => {
       setTranscript(text);
     }, () => setListening(false));
     setListening(true);
@@ -26,5 +24,9 @@ export function useSTT() {
     setListening(false);
   };
 
-  return { start, stop, transcript, listening, supported: stt.isSupported() };
+  const reset = () => {
+    setTranscript('');
+  };
+
+  return { start, stop, reset, transcript, listening, supported: stt.isSupported() };
 }
