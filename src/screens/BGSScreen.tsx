@@ -4,6 +4,8 @@ import { BGS_QUESTIONS } from '../data/questions';
 import { CasualTop, CasualProgress, CasualBottom, CasualButton, CIcons } from '../components/casual/CasualUI';
 
 const SINGLE_QIDS = new Set(['occupation', 'student', 'living']);
+const COUNT_QIDS = ['leisure', 'hobby', 'sports', 'travel'];
+const MIN_COMBINED_TOTAL = 12;
 
 type Copy = { title: ReactNode; sub: ReactNode };
 const BGS_COPY: Record<string, Copy> = {
@@ -84,13 +86,38 @@ export function BGSScreen() {
     }
   };
 
-  const canNext = isSingle ? cur.length === 1 : cur.length >= minSelect;
+  const combinedCount = COUNT_QIDS.reduce(
+    (sum, qid) => sum + (answers[qid]?.length || 0),
+    0,
+  );
+  const showCombinedCounter = COUNT_QIDS.includes(q.id);
+  const combinedMet = combinedCount >= MIN_COMBINED_TOTAL;
+
+  const canNext = isSingle
+    ? cur.length === 1
+    : cur.length >= minSelect &&
+      (q.id !== 'travel' || combinedMet);
   const progressValue = ((stepIdx + 1) / total) * 100;
 
   return (
     <>
       <CasualTop step={stepIdx + 1} total={total} onBack={stepIdx > 0 ? goPrev : null} />
       <CasualProgress value={progressValue} />
+
+      {showCombinedCounter && (
+        <div className={`bgs-combo-counter ${combinedMet ? 'met' : ''}`}>
+          <span className="bgs-combo-counter-label">취미·관심사 합계</span>
+          <span className="bgs-combo-counter-value">
+            <b>{combinedCount}</b>
+            <span className="bgs-combo-counter-min">/ 최소 {MIN_COMBINED_TOTAL}</span>
+          </span>
+          {combinedMet && (
+            <span className="bgs-combo-counter-check" aria-label="충족">
+              {CIcons.check(12)}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="casual-page">
         <h1 className="casual-h1">{copy.title}</h1>

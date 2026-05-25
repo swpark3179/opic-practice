@@ -43,11 +43,12 @@ export function MainScreen() {
   const qIdx = state.currentQuestionIdx;
 
   const { speak, stop: stopTTS } = useTTS();
-  const { start: startSTT, stop: stopSTT, transcript, supported: sttSupported } = useSTT();
+  const { start: startSTT, stop: stopSTT, reset: resetSTT, transcript, supported: sttSupported } = useSTT();
   const { startRecording, stopRecording, isRecording, error: recorderError } = useAudioRecorder();
 
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [textMode, setTextMode] = useState(false);
+  const [hasRecording, setHasRecording] = useState(false);
 
   const isCompleted = !!test && topicIdx >= test.topics.length;
   const topic = !isCompleted && test ? test.topics[topicIdx] : null;
@@ -62,12 +63,12 @@ export function MainScreen() {
     : totalQuestions;
 
   const { elapsed, reset: resetTimer } = useTimer(isRecording);
-  const remaining = topic ? Math.max(0, topic.timer - elapsed) : 0;
 
   const handleStopRecording = useCallback(async () => {
     stopSTT();
     const blob = await stopRecording();
     if (blob) {
+      setHasRecording(true);
       if (topic) {
         await storage.saveAudioRecording(blob, `${topic.title}_${qIdx}`);
       }
@@ -85,16 +86,12 @@ export function MainScreen() {
   }, [dispatch, elapsed, qIdx, state.stats, stopRecording, stopSTT, topic]);
 
   useEffect(() => {
-    if (isRecording && remaining <= 0) {
-      handleStopRecording();
-    }
-  }, [remaining, isRecording, handleStopRecording]);
-
-  useEffect(() => {
     stopTTS();
     if (isRecording) handleStopRecording();
     setSheet(null);
     setTextMode(false);
+    setHasRecording(false);
+    resetSTT();
     resetTimer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicIdx, qIdx]);
@@ -107,6 +104,8 @@ export function MainScreen() {
 
   const handleStartRecording = async () => {
     resetTimer();
+    resetSTT();
+    setHasRecording(false);
     stopTTS();
     await startRecording();
     if (sttSupported) startSTT();
@@ -166,7 +165,7 @@ export function MainScreen() {
               <button
                 className={`casual-mic ${isRecording ? 'rec' : ''}`}
                 onClick={isRecording ? handleStopRecording : handleStartRecording}
-                aria-label={isRecording ? '녹음 멈추기' : '녹음 시작'}
+                aria-label={isRecording ? '녹음 멈추기' : (hasRecording ? '다시 녹음' : '녹음 시작')}
               >
                 {isRecording ? CIcons.stop(30) : CIcons.mic(36)}
               </button>
@@ -176,10 +175,13 @@ export function MainScreen() {
               {isRecording ? (
                 <>
                   <div className="rec-label">● 녹음 중</div>
-                  <div className="big">
-                    {fmtTime(elapsed)}
-                    <span className="small"> / {fmtTime(topic.timer)}</span>
-                  </div>
+                  <div className="big">{fmtTime(elapsed)}</div>
+                </>
+              ) : hasRecording ? (
+                <>
+                  <div className="done-label">✓ 녹음 완료</div>
+                  <div className="big">{fmtTime(elapsed)}</div>
+                  <div className="idle-sub">마이크를 다시 누르면 새로 녹음할 수 있어요</div>
                 </>
               ) : (
                 <>
@@ -191,12 +193,14 @@ export function MainScreen() {
               )}
             </div>
 
-            {isRecording && transcript && (
+            {(isRecording || hasRecording) && transcript && (
               <button
                 className="casual-transcript-pill"
                 onClick={() => setSheet('transcript')}
               >
-                <div className="label">지금 말한 내용</div>
+                <div className="label">
+                  {isRecording ? '지금 말한 내용' : '녹음된 내용 (텍스트)'}
+                </div>
                 <div className="body">{transcript}</div>
               </button>
             )}
