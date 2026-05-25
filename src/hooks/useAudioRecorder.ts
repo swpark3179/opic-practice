@@ -147,7 +147,10 @@ export function useAudioRecorder() {
           mediaRecorder.current.ondataavailable = (event) => {
             if (event.data.size > 0) audioChunks.current.push(event.data);
           };
-          mediaRecorder.current.start();
+          // iOS Safari and some Android builds only emit `dataavailable` reliably
+          // when a timeslice is set. Without it, `stop()` can resolve with no
+          // chunks, producing an empty blob.
+          mediaRecorder.current.start(1000);
           usingFallback.current = false;
           setIsRecording(true);
           return;

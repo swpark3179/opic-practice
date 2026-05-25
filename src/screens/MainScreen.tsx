@@ -190,7 +190,7 @@ export function MainScreen() {
           <span className="text">{category?.name || '기타'} · {topic.title_kr}</span>
         </div>
 
-        <div style={{ marginBottom: 18 }}>
+        <div style={{ marginBottom: 12 }}>
           <div className="casual-question">{q.q}</div>
           <div className="casual-quick-row">
             <button className="casual-kr-button" onClick={() => setSheet('kr')}>
@@ -249,6 +249,24 @@ export function MainScreen() {
               )}
             </div>
           </div>
+        </div>
+
+        <div className="casual-actions">
+          <SmallLink icon={CIcons.spark(13)} onClick={() => setSheet('sample')}>모범답안</SmallLink>
+          <SmallDot />
+          <SmallLink onClick={async () => {
+            const next = !textMode;
+            if (next && isRecording) {
+              await handleStopRecording();
+            }
+            if (next) stopTTS();
+            setTextMode(next);
+            dispatch({ type: 'SET_MODE', payload: next ? 'text' : 'voice' });
+          }}>
+            {textMode ? '음성으로' : '글로 답하기'}
+          </SmallLink>
+          <SmallDot />
+          <SmallLink icon={CIcons.book(13)} onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'knowledge' })}>관련 질문</SmallLink>
         </div>
 
         {!textMode ? (
@@ -351,23 +369,6 @@ export function MainScreen() {
           </div>
         )}
 
-        <div className="casual-actions">
-          <SmallLink icon={CIcons.spark(13)} onClick={() => setSheet('sample')}>모범답안</SmallLink>
-          <SmallDot />
-          <SmallLink onClick={async () => {
-            const next = !textMode;
-            if (next && isRecording) {
-              await handleStopRecording();
-            }
-            if (next) stopTTS();
-            setTextMode(next);
-            dispatch({ type: 'SET_MODE', payload: next ? 'text' : 'voice' });
-          }}>
-            {textMode ? '음성으로' : '글로 답하기'}
-          </SmallLink>
-          <SmallDot />
-          <SmallLink icon={CIcons.book(13)} onClick={() => dispatch({ type: 'TOGGLE_SHEET', payload: 'knowledge' })}>관련 질문</SmallLink>
-        </div>
       </div>
 
       <CasualBottom>
