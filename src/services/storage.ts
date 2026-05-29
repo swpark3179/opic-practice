@@ -1,5 +1,10 @@
 import { Store, load } from '@tauri-apps/plugin-store';
 import { PracticeStats } from '../context/AppContext';
+import type { ApiConfig, FeedbackHistoryEntry } from './feedback/types';
+
+const API_CONFIG_KEY = 'apiConfig';
+const FEEDBACK_HISTORY_KEY = 'feedbackHistory';
+const FEEDBACK_HISTORY_CAP = 50;
 
 class StorageService {
   private store: Store | null = null;
@@ -64,14 +69,22 @@ class StorageService {
     }
   }
 
-  // Extension Point 2: AI Feedback
-  async getAIFeedback(transcript: string, sample: string): Promise<string> {
-    // Placeholder for actual AI integration (e.g. Gemini API)
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve("AI Feedback: Your answer was good, but you could improve your vocabulary by using words like 'moreover' and 'furthermore'.");
-      }, 1500);
-    });
+  async getApiConfig(): Promise<ApiConfig | null> {
+    return this.get<ApiConfig | null>(API_CONFIG_KEY, null);
+  }
+
+  async setApiConfig(cfg: ApiConfig): Promise<void> {
+    await this.set(API_CONFIG_KEY, cfg);
+  }
+
+  async listFeedbackHistory(): Promise<FeedbackHistoryEntry[]> {
+    return this.get<FeedbackHistoryEntry[]>(FEEDBACK_HISTORY_KEY, []);
+  }
+
+  async appendFeedbackHistory(entry: FeedbackHistoryEntry): Promise<void> {
+    const list = await this.listFeedbackHistory();
+    const next = [entry, ...list].slice(0, FEEDBACK_HISTORY_CAP);
+    await this.set(FEEDBACK_HISTORY_KEY, next);
   }
 }
 

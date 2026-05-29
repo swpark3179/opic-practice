@@ -4,12 +4,15 @@ import { useTTS } from '../hooks/useTTS';
 import { useSTT } from '../hooks/useSTT';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useTimer } from '../hooks/useTimer';
+import { useFeedbackStream } from '../hooks/useFeedbackStream';
 import { storage } from '../services/storage';
 
 import {
   CasualTop, CasualBottom, CasualButton, CasualSheet,
   CIcons, SmallLink, SmallDot,
 } from '../components/casual/CasualUI';
+import { FeedbackSheet } from '../sheets/FeedbackSheet';
+import { SettingsSheet } from '../sheets/SettingsSheet';
 
 type SheetKind = null | 'sample' | 'kr' | 'topics' | 'transcript';
 
@@ -37,6 +40,7 @@ export function MainScreen() {
   const { speak, stop: stopTTS, speaking } = useTTS();
   const { start: startSTT, stop: stopSTT, reset: resetSTT, transcript, supported: sttSupported } = useSTT();
   const { startRecording, stopRecording, isRecording, error: recorderError } = useAudioRecorder();
+  const feedback = useFeedbackStream();
 
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [textMode, setTextMode] = useState(false);
@@ -178,9 +182,19 @@ export function MainScreen() {
         total={totalQuestions}
         onBack={overallIdx === 0 ? null : () => navQ(-1)}
         rightSlot={
-          <button className="casual-top-icon-btn" onClick={() => setSheet('topics')} aria-label="주제 목록">
-            {CIcons.list(18)}
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              className="casual-top-icon-btn"
+              onClick={() => dispatch({ type: 'TOGGLE_SETTINGS_SHEET' })}
+              aria-label="AI 피드백 설정"
+              title="AI 피드백 설정"
+            >
+              {gearIcon()}
+            </button>
+            <button className="casual-top-icon-btn" onClick={() => setSheet('topics')} aria-label="주제 목록">
+              {CIcons.list(18)}
+            </button>
+          </div>
         }
       />
 
@@ -354,6 +368,29 @@ export function MainScreen() {
         <div className="casual-actions">
           <SmallLink icon={CIcons.spark(13)} onClick={() => setSheet('sample')}>모범답안</SmallLink>
           <SmallDot />
+          <SmallLink
+            icon={sparkleIcon()}
+            onClick={() => {
+              if (!q || !topic) return;
+              const answer = textMode ? state.textAnswer.trim() : transcript.trim();
+              if (!answer) {
+                dispatch({ type: 'TOGGLE_FEEDBACK_SHEET', payload: true });
+                dispatch({
+                  type: 'FEEDBACK_ERROR',
+                  payload: { code: 'bad_request', message: '먼저 답변을 녹음하거나 입력해주세요.' },
+                });
+                return;
+              }
+              void feedback.start({
+                question: q.q,
+                transcript: answer,
+                topicTitle: topic.title_kr || topic.title,
+              });
+            }}
+          >
+            AI 피드백
+          </SmallLink>
+          <SmallDot />
           <SmallLink onClick={async () => {
             const next = !textMode;
             if (next && isRecording) {
@@ -448,7 +485,43 @@ export function MainScreen() {
           </div>
         </div>
       </CasualSheet>
+
+      <FeedbackSheet
+        open={feedback.state.showSheet}
+        onClose={() => dispatch({ type: 'TOGGLE_FEEDBACK_SHEET', payload: false })}
+        status={feedback.state.status}
+        partial={feedback.state.partial}
+        error={feedback.state.error}
+        onCancel={() => void feedback.cancel()}
+        onRetry={() => void feedback.retry()}
+        onOpenSettings={() => {
+          dispatch({ type: 'TOGGLE_FEEDBACK_SHEET', payload: false });
+          dispatch({ type: 'TOGGLE_SETTINGS_SHEET', payload: true });
+        }}
+      />
+
+      <SettingsSheet
+        open={feedback.state.showSettings}
+        onClose={() => dispatch({ type: 'TOGGLE_SETTINGS_SHEET', payload: false })}
+      />
     </>
+  );
+}
+
+function gearIcon() {
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+function sparkleIcon() {
+  return (
+    <svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 1l1.7 5.3L19 8l-5.3 1.7L12 15l-1.7-5.3L5 8l5.3-1.7L12 1zM19 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3zM5 16l.7 2.3L8 19l-2.3.7L5 22l-.7-2.3L2 19l2.3-.7L5 16z" />
+    </svg>
   );
 }
 

@@ -1,3 +1,5 @@
+mod feedback;
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -11,7 +13,13 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .manage(feedback::RequestRegistry::default())
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            feedback::request_feedback,
+            feedback::cancel_feedback,
+            feedback::test_api_config,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
