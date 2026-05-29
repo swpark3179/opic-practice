@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import type { FeedbackError, FeedbackResult, FeedbackStatus } from '../services/feedback/types';
 
 // Data types (to be fully defined later)
 export interface BGSAnswers {
@@ -9,6 +10,15 @@ export interface PracticeStats {
   totalPractice: number;
   totalTimeSeconds: number;
   lastPracticeDate: string | null;
+}
+
+export interface FeedbackSliceState {
+  currentId: string | null;
+  status: FeedbackStatus;
+  partial: Partial<FeedbackResult>;
+  error: FeedbackError | null;
+  showSheet: boolean;
+  showSettings: boolean;
 }
 
 export interface AppState {
@@ -27,6 +37,7 @@ export interface AppState {
   showKnowledge: boolean;
   showTopics: boolean;
   showStats: boolean;
+  feedback: FeedbackSliceState;
 }
 
 type Action = 
@@ -43,7 +54,15 @@ type Action =
   | { type: 'UPDATE_TEXT_ANSWER'; payload: string }
   | { type: 'TOGGLE_SHEET'; payload: 'knowledge' | 'topics' | 'stats' }
   | { type: 'UPDATE_STATS'; payload: PracticeStats }
-  | { type: 'CLOSE_ALL_SHEETS' };
+  | { type: 'CLOSE_ALL_SHEETS' }
+  | { type: 'FEEDBACK_START'; payload: { id: string } }
+  | { type: 'FEEDBACK_DELTA'; payload: { partial: Partial<FeedbackResult> } }
+  | { type: 'FEEDBACK_DONE' }
+  | { type: 'FEEDBACK_ERROR'; payload: FeedbackError }
+  | { type: 'FEEDBACK_CANCEL' }
+  | { type: 'FEEDBACK_RESET' }
+  | { type: 'TOGGLE_FEEDBACK_SHEET'; payload?: boolean }
+  | { type: 'TOGGLE_SETTINGS_SHEET'; payload?: boolean };
 
 const initialState: AppState = {
   phase: 1,
@@ -64,8 +83,18 @@ const initialState: AppState = {
   textAnswer: '',
   showKnowledge: false,
   showTopics: false,
-  showStats: false
+  showStats: false,
+  feedback: {
+    currentId: null,
+    status: 'idle',
+    partial: {},
+    error: null,
+    showSheet: false,
+    showSettings: false,
+  },
 };
+
+const initialFeedback: FeedbackSliceState = initialState.feedback;
 
 function appReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -122,7 +151,62 @@ function appReducer(state: AppState, action: Action): AppState {
     case 'UPDATE_STATS':
       return { ...state, stats: action.payload };
     case 'CLOSE_ALL_SHEETS':
-      return { ...state, showKnowledge: false, showTopics: false, showStats: false };
+      return {
+        ...state,
+        showKnowledge: false,
+        showTopics: false,
+        showStats: false,
+        feedback: { ...state.feedback, showSheet: false, showSettings: false },
+      };
+    case 'FEEDBACK_START':
+      return {
+        ...state,
+        feedback: {
+          ...initialFeedback,
+          currentId: action.payload.id,
+          status: 'starting',
+          showSheet: true,
+        },
+      };
+    case 'FEEDBACK_DELTA':
+      return {
+        ...state,
+        feedback: {
+          ...state.feedback,
+          status: 'streaming',
+          partial: { ...state.feedback.partial, ...action.payload.partial },
+        },
+      };
+    case 'FEEDBACK_DONE':
+      return { ...state, feedback: { ...state.feedback, status: 'done' } };
+    case 'FEEDBACK_ERROR':
+      return { ...state, feedback: { ...state.feedback, status: 'error', error: action.payload } };
+    case 'FEEDBACK_CANCEL':
+      return {
+        ...state,
+        feedback: { ...state.feedback, status: 'cancelled', currentId: null },
+      };
+    case 'FEEDBACK_RESET':
+      return {
+        ...state,
+        feedback: { ...initialFeedback, showSettings: state.feedback.showSettings },
+      };
+    case 'TOGGLE_FEEDBACK_SHEET':
+      return {
+        ...state,
+        feedback: {
+          ...state.feedback,
+          showSheet: action.payload ?? !state.feedback.showSheet,
+        },
+      };
+    case 'TOGGLE_SETTINGS_SHEET':
+      return {
+        ...state,
+        feedback: {
+          ...state.feedback,
+          showSettings: action.payload ?? !state.feedback.showSettings,
+        },
+      };
     default:
       return state;
   }
